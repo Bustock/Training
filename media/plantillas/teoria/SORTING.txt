@@ -1,0 +1,24 @@
+1-	Antes de empezar a desmontar que es lo primero que tengo que hacer.
+A-	Conectarme a la pulsera ESD.
+B-	Comprobar que modelo de SEM es.
+C-	Colocar bien las herramientas.
+
+2-	Cuando cojo el SEM tengo que revisar:
+A-	Nada.
+B-	Que no tenga corrosión en los contactos.
+C-	Que no esté muy deteriorado en general.
+
+3-	Cuando utilizo la pistola de aire:
+A-	Le soplo bastante para limpiar todo bien.
+B-	Tapo con los dedos la membrana de los micros y soplo flojito.
+C-	No se puede utilizar la pistola de aire.
+
+4-	Cuando utilizamos la brocha para limpiar:
+A-	No se puede utilizar brocha.
+B-	La pasamos muy suave.
+C-	Usamos una brocha más pequeña en la zona de los cables.
+
+5-	Que partes hay que quitar del SEM
+A-	Los serial numbers.
+B-	Los contactos.
+C-	Nada.

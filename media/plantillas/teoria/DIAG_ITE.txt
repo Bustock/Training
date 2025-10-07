@@ -1,0 +1,64 @@
+1-	Un diagnostico de un audífono intrauricular se compone de:
+A-	Sólo examen visual.
+B-	Solo examen funcional del estado el audífono.
+C-	Solo examen visual y funcional del estado general del audífono.
+
+2-	En una orden de SAP se comprueba:
+A-	El modelo del audífono, fecha de entrada y salida.
+B-	El numero de la orden, el SN del audífono y la fecha de salida.
+C-	El modelo del audífono, el SN del audífono y la fecha de salida.
+
+3-	Físicamente hablando ¿Qué diferencia existen entre los micrófonos direccionales de una plataforma B y V de Phonak, en los modelos Virto de pila 10 y 312?
+A-	El color del micrófono.
+B-	El número  de soldaduras.
+C-	No existe diferencia entre ambas plataformas.
+
+4-	De los siguientes colores cual NO corresponde con los colores de la carcasa:
+A-	26,22,14,06,21,28.
+B-	22,13,26,28,06,14.
+C-	a y b son correctas.
+
+5-	Si me devuelven un rework que falla en frecuencia el motivo puede ser:
+A-	Kit defectuoso.
+B-	Un mal diagnóstico.
+C-	Auricular defectuoso.
+
+6-	¿Cómo procesa un audífono intrauricular la señal acústica?
+A-	1º procesador, 2º micrófono, 3º amplificador.
+B-	1º micrófono, 2º procesador, 3º auricular.
+C-	1º auricular, 2º micrófono, 3º procesador.
+
+7-	Cuáles son los elementos principales un kit de un ITE.
+A-	Placa, micrófono y auricular.
+B-	Placa, micrófono, hibrido y auricular 
+C-	Micrófono y auricular.
+
+8-	El micrófono de modulo  045-0380-1 pertenece al modelo:
+A-	Virto B pila 10 y 312.
+B-	Virto V y B pila 10 y 312.
+C-	Virto B pila 13.
+
+9-	En un primer lugar, cuando un cliente se queja de distorsión, ¿a qué puede ser debido?
+A-	Auricular sucio.
+B-	Procesador sucio.
+C-	Micrófono sucio.
+
+10-	Cuando algún contacto de programación esta dañado:
+A-	El audífono funciona y detecta correctamente.
+B-	El audífono no funciona y detecta correctamente.
+C-	El audífono funciona y no detecta.
+
+11-	Cuando un audífono no pasa el CSR significa que:
+A-	No funciona, no se puede leer.
+B-	No se puede poner al máximo y por tanto está bloqueado.
+C-	No se pueden capturar los ajustes del paciente y por lo tanto no se puede poner al máximo.
+
+12-	Al poner la pila,el audífono ejecuta un beep y seguidamente se oye ruido¿Qué componente esta dañado,referente a ese sonido?
+A-	Microfono.
+B-	Auricular.
+C-	A y B son correctas.
+
+13-	A que hace referencia los números 30,50,70 y 90 en los nombres de los diferentes modelos de audífonos. Ej. Virto V70 312
+A-	A la potencia de amplificación.
+B-	A las prestaciones que ofrece el audífono.
+C-	No tiene nada que ver con la reparación, solo es un tema de marketing comercial.

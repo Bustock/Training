@@ -1,0 +1,59 @@
+1-	Cuando cojo una orden de trabajo, ¿qué es lo primero que tengo que hacer?
+A-	Conectarme a la pulsera ESD.
+B-	Comprobar opciones/material.
+C-	Abrir hoja de RSM.
+
+2-	Marca la opción correcta:
+A-	Puedo colocar los componentes como yo quiera.
+B-	Tengo que colocar los componentes según la hoja de RSM.
+C-	Las dos opciones son correctas.
+
+3-	¿Qué tengo que hacer si las pestañas del módulo están dañadas?
+A-	Si están dañadas la pestaña 1 y 3 hay que cambiar el módulo.
+B-	No es importante aunque estén dañadas se puede utilizar el mismo modulo.
+C-	Si esta dañada la pestaña 4 hay que cambiar el módulo.
+
+4-	¿Cuándo tengo que dejar de aplicar la silicona en el módulo?
+A-	Aparece una línea brillante(visible bajo el microscopio).
+B-	Cuando yo crea que está bien sellado.
+C-	Depende del audífono.
+
+5-	Para pegar casquillos de cerustop:
+A-	Se aplica directamente Loctite en el casquillo.
+B-	Se aplica directamente Loctite en el tubo.
+C-	Se puede hacer de las dos formas.
+
+6-	¿Cuánto tiempo tiene que estar el audífono en el horno para curar el sellado?
+A-	60m.
+B-	20m.
+C-	15m.
+
+7-	¿A cuantos grados tiene que estar el horno?
+A-	60º.
+B-	50º.
+C-	Es indiferente.
+
+8-	¿Cómo pegamos el nylon?
+A-	Según la medida de RSM + 3mm,chafamos con el soldador y pegamos con Loctite 420 por dentro.
+B-	Según la medida de RSM y pegamos por dentro.
+C-	Según la medida de RSM y pegamos por fuera.
+
+9-	¿Qué herramienta se aconseja para pegar el tubo a la carcasa?
+A-	Azul.
+B-	Negra.
+C-	Verde.
+
+10-	¿Cuánto tiempo tengo que dejar secar el pegamento cuando pegamos el tubo a la carcasa?
+A-	5m.
+B-	20m.
+C-	2m.
+
+11-	¿Qué tengo que hacer siempre que no estoy utilizando el pegamento?
+A-	Guardarlo en el frio.
+B-	Colocar la tapa.
+C-	Nada.
+
+12-	¿Dónde se coloca la bobina?
+A-	Tengo que mirar la hoja de RSM para su correcta colocación.
+B-	La puedo colocar donde yo quiera.
+C-	Las dos opciones son correctas.

@@ -1,0 +1,59 @@
+1-	Cuando cojo una orden que es lo primero que tengo que hacer.
+A-	Conectarme a la pulsera ESD.
+B-	Comprobar opciones/material.
+C-	Abrir hoja de RSM.
+
+2-	Cuando cambio de auricular  P a M ó SP.
+A-	Utilizo disipador de calor.
+B-	Con el soldador quito directamente los cables.
+C-	 Corto los cables para no darle calor.
+
+3-	Para cambiar una placa que temperatura tengo que tener en el soldador.
+A-	Si es virto B -10,  330ºC.
+B-	Si es virto B -10,  280ºC.
+C-	Ninguna de las dos opciones.
+
+4-	Cuando no utilizo el soldador .
+A-	Lleno la punta de estaño .
+B-	Lo apago.
+C-	Nada.
+
+5-	Cuando pego un tubo al auricular .
+A-	1ª aplico pegamento al auricular y luego coloco el tubo.
+B-	1ª coloco el tubo y después aplico pegamento alrededor del tubo.
+C-	De las dos formas se puede hacer.
+
+6-	Que tengo que hacer siempre que no estoy utilizando el pegamento.
+A-	Guardarlo en el frigo.
+B-	Colocar la tapadera.
+C-	Nada.
+
+7-	Cuando colocamos auricular M , SP ó UP , tenemos que:
+A-	Pasar pro&go.
+B-	No hay que hacer nada .
+C-	Pasar el PLA.
+
+8-	Soy yo responsable de que todos los productos que estoy utilizando no estén caducados.
+A-	Si.
+B-	No.
+C-	El responsable es el supervisor.
+
+9-	Para los micrófonos direccionales de virto V y virto B que Loctite hay que utilizar.
+A-	Loctite 420.
+B-	Loctite 401.
+C-	Cualquiera de los dos vale.
+
+10-	Es necesario poner a todas las soldaduras tropicalizador, (laca verde).
+A-	Siempre.
+B-	Solamente a las soldaduras del auricular.
+C-	No es necesario.
+
+11-	Se puede transportar los auriculares y micrófonos en una caja que no sea ESD 
+A-	SI.
+B-	NO.
+C-	Lo único que no se puede transportar son los kits.
+
+13-	El pegamento lo tengo que poner siempre en un cristal.
+A-	Siempre.
+B-	A veces.
+C-	Lo puedo poner donde yo quiera.

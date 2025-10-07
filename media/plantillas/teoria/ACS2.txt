@@ -1,0 +1,24 @@
+1- 	Antes de empezar a tocar los SEM que es lo primero que tengo que hacer.
+A- 	Conectarme a la pulsera ESD.
+B- 	Comprobar que modelo de SEM es.
+C- 	Colocar bien las herramientas.
+
+2- 	¿Cómo iniciamos sesión en la ACS2?
+A- 	Pulsando la tecla F3.
+B- 	Pulsando la tecla F5.
+C- 	Pulsando la tecla F8.
+
+3- 	Para abrir la cámara...
+A- 	Pulsamos primero el botón derecho y luego el izquierdo.
+B- 	Pulsamos 0.5 segundos los 2 botones al mismo tiempo.
+C- 	Se abre sola.
+
+4- 	Para cerrar la camara...
+A- 	Pulsamos el botón derecho hasta que la cámara se haya cerrado.
+B- 	Dejar pulsados los botones hasta que la caja se haya cerrado por completo.
+C- 	Pulsando cualquier botón se cierra sola.
+
+5- 	¿Como apagamos el sistema?
+A- 	Pulsamos Exit.
+B- 	Pulsamos Shutdown.
+C- 	Pulsamos finish order, cerramos la caja, pulsamos exit y shutdown.
