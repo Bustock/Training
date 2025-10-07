@@ -1,0 +1,35 @@
+1-	Verifica que el nº de serie es el mismo que el de la orden.
+
+2-	Comprueba que todas las opciones del cliente son las correctas.
+
+3-	Limpia el aparato con Isopropanol para ver imperfecciones.
+
+4-	Verifica en RSM colisiones, posición y medida del nylon, venting,...
+
+5-	Prepara y coloca correctamente el nylon.
+
+6-	Guarda el aparato terminado en las bolsas negras.
+
+7-	Utiliza los guantes correctos durante el proceso de lacado.
+
+8-	Utiliza guantes para trabajar con el isopropanol.
+
+9-	Mientras está trabajando utiliza la extracción.
+
+10-	Todos los productos están correctamente etiquetados.
+
+11-	La caducidad de los productos que está usando es correcta.
+
+12-	Para el pegado sólo utiliza el Loctite 420.
+
+13-	Tapa el pegamento cuando no se utiliza.
+
+14-	Guarda el pegamento en el frigo.
+
+15-	Cuando usa la pistola UV utiliza la protección para los ojos.
+
+16-	Deja el audífono en el cubo de laca 30'' dando vueltas.
+
+17-	Cuando pule protege las salidas del audífono (auriculares y micros).
+
+18-	Tiene su puesto limpio y ordenado.
