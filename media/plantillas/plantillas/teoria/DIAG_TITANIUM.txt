@@ -1,0 +1,61 @@
+1-	Un diagnostico de un audífono Titanium se compone de:
+A-	Sólo examen visual del estado general del audífono.
+B-	Solo examen visual y funcional del estado el audífono.
+C-	Solo examen visual y funcional del estado general del audífono.
+
+2-	En una orden de SAP se comprueba:
+A-	El modelo del audífono, fecha de entrada y salida.
+B-	El numero de la orden, el SN del audífono y la fecha de salida.
+C-	El modelo del audífono, el SN del audífono y la fecha de salida y características.
+
+3-	Si me devuelven un rework que falla en frecuencia el motivo puede ser:
+A-	Kit defectuoso.
+B-	Un mal diagnóstico.
+C-	Auricular defectuoso.
+
+4-	¿Cuándo le pondrías una incidencia a CS?
+A-	Cuando no lleva el contour sik (avellanado).
+B-	Cuando el SN del audífono no coincide con la orden de SAP.
+C-	Cuando el audífono esté perdido o bailado con otra reparación.
+
+5-	Cuáles son los elementos principales en un kit de un ITE.
+A-	Placa, micrófono y auricular.
+B-	Placa, micrófono, hibrido y auricular.
+C-	Micrófono y auricular.
+
+6-	En un primer lugar, cuando un cliente se queja de distorsión, ¿a qué puede ser debido?
+A-	Auricular sucio.
+B-	Procesador sucio.
+C-	Micrófono sucio.
+
+7-	Un pasar y devolver o comprobar si pasa P&G, ¿garantiza un correcto funcionamiento del audífono?
+A-	Si.
+B-	Depende del modelo de audífono.
+C-	Nunca.
+
+8-	Cuando un audífono no pasa el CSR significa que:
+A-	No funciona, no se puede leer.
+B-	No se puede poner al máximo y por tanto está bloqueado.
+C-	No se pueden capturar los ajustes del paciente y por lo tanto no se puede poner al máximo.
+
+9-	Cuando se añade el material al SAP hay que tener en cuenta:
+A-	Solo lo que envía el cliente y el modelo del audífono.
+B-	Solo lo que envía el cliente.
+C-	Solo lo que aparece en SAP.
+
+10-	Si el microfono viene sucio:
+A-	Cambiamos micro.
+B-	Cambiamos placa.
+C-	Cambiamos kit.
+
+
+
+9-	Cuando se añade el material al SAP hay que tener en cuenta:
+a.	Solo lo que envía el cliente y el modelo del audífono.
+b.	Solo lo que envía el cliente.
+c.	Solo lo que aparece en SAP.
+
+10-	Si el microfono viene sucio:
+a.	Cambiamos micro.
+b.	Cambiamos placa.
+c.	Cambiamos kit.

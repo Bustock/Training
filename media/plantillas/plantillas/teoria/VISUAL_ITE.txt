@@ -1,0 +1,60 @@
+1-	Cuando se coge una pieza de ITE para empezar a hacer el Visual, qué se comprueba primero:
+A-	Se comprueban opciones de clients.
+B-	Se comprueba nº de serie.
+C-	Se comprueba el estado de la laca.
+
+2-	Las opciones en SAP y DOWM deben coincidir:
+A-	Sí.
+B-	No.
+C-	Sólo algunas veces.
+
+3-	Si el S.A. no está colocado correctamente y raspa qué se debe hacer:
+A-	Sacamos la pieza así.
+B-	Intentamos solucionarlo nosotros mismos.
+C-	Se consulta.
+D-	Se comprueba que no tenga laca el casquillo o el tubo este largo.
+
+4-	Si el auricular que lleva grabada la pieza no corresponde con DWOM:
+A-	Probamos en el Pro&Go.
+B-	Devolvemos al diagnosticador para que lo compruebe / modifique.
+C-	Modificamos nosotros DWOM.
+
+5-	Cuando comprobamos el tubo de auricular, cómo nos lo debemos encontrar:
+A-	Limpio y sin estrangular.
+B-	Estrangulado.
+C-	Ninguna de las opciones anteriores.
+
+6-	Cuando medimos el Nylon y mide aproximadamente 1mm:
+A-	Sacamos la pieza.
+B-	Devolvemos al diagnosticador.
+C-	Cambiamos Nylon.
+
+7-	Qué color de placa es el nº 06:
+A-	Blanco.
+B-	Cocoa.
+C-	Negro.
+
+8-	Si una de las opciones de SAP pone que lleva HB, qué se supone que comprobamos:
+A-	Que no realimente.
+B-	Wireless.
+C-	Control de volume.
+
+9-	Si en las fotos de RSM, aparece algún contorno en rojo, qué significa:
+A-	Que está mal modelado.
+B-	Que lleva colisión y debe ir rebajado.
+C-	RSM no lo ha modelado correctamente.
+
+10-	Cuando el cliente envía audiometría y no pide tamaño de venting, cómo viene identificado en SAP:
+A-	AOV.
+B-	DT.
+C-	D- shaped.
+
+11-	Cuando hay un puntito de laca en una pieza nueva y apenas se  nota, qué se debe hacer:
+A-	Re-lacamos.
+B-	Devolvemos al diagnosticador.
+C-	Sacamos la pieza.
+
+12-	Cuando se prueba a oído la pieza, qué debemos comprobar:
+A-	Que la pieza no realimenta.
+B-	Opciones de usuario.
+C-	A y B son correctas.

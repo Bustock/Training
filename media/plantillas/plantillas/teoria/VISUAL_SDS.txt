@@ -1,0 +1,45 @@
+1-	Cuando se coge una C-Shell, qué es lo primero que se comprueba:
+A-	Hilo.
+B-	Número de serie.
+C-	Instrucciones del cliente.
+
+2-	Si cuando estás comprobando la pieza, hay alguna opción que no coincide:
+A-	Lo mandas al Diagnosticador.
+B-	Lo solucionas dándoselo al anterior paso.
+C-	Sacas la pieza.
+
+3-	Una pieza lleva un hilo de 6 mm y debería llevar de 5mm:
+A-	Rectificas hilo.
+B-	Consultas con un supervisor.
+C-	Sacas la pieza.
+
+4-	La laca lleva un puntito de laca:
+A-	La pasas al Pro&Go.
+B-	Compruebas si raspa, de ser así la rechazas y sino la pasas al Pro&Go.
+C-	La rechazas.
+
+5-	Si el S/A de la c-shell no encaja bien:
+A-	Comprobamos tubo.
+B-	Comprobamos pegamento/laca.
+C-	A y B son correctas.
+
+6-	Si la goma de un auricular UP en una carcasa transparente está tapando los orificios:
+A-	No tiene importancia.
+B-	Se consulta.
+C-	Se retrabaja ya que no puede salir asi.
+
+7-	Que color de placa es el numero 47 
+A-	Beige.
+B-	Negra transparente.
+C-	Tostado.
+
+8-	Cuando piden pestaña digital como va identificada en el SAP
+A-	CL.
+B-	P.
+C-	DL CL.
+
+9-	Si al escuchar la pieza la oímos muy floja como procedemos:
+A-	No pasa nada ya se comprueba en el pro&go.
+B-	Comprobamos que el S/A ,casquillo este limpio.
+C-	Comprobamos que no esté el tubo estrangulado
+D-	C y B son correctas.

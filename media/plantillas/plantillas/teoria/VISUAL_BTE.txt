@@ -1,0 +1,55 @@
+1-	Cuando se coge  una caja para hacer el visual de BTE, qué es lo primero que hay que hacer:
+A-	Se escucha a oido.
+B-	Se miran las opciones.
+C-	Se comprueba número de serie.
+
+2-	Se debe mirar lo que hay que cambiar:
+A-	Sí.
+B-	No.
+C-	Sólo algunas veces.
+
+3-	Si algún pasador raspa cuando terminamos de montarlo, qué debemos hacer:
+A-	Sacamos la pieza así.
+B-	Cambiamos pasador. 
+C-	Comprobamos que el pasador sea el que le corresponde.
+
+4-	Si el color de caja no corresponde con lo que ha enviado el cliente:
+A-	Lo montamos así.
+B-	Comprobamos SAP y diagnóstico.
+C-	Cambiamos como viene y se deja anotado en internal note.
+
+5-	¿Cuándo debemos abrir el RSM sheet?
+A-	No es necesario.
+B-	Siempre.
+C-	Sólo algunas veces.
+
+6-	¿Qué se debe comprobar en el RSM sheet?
+A-	Imput options.
+B-	User control.
+C-	Las 2 respuestas anteriores son correctas.
+
+7-	Cuando estamos escuchando la pieza, qué es lo que debemos comprobar:
+A-	Opciones.
+B-	Que no exista realimentación.
+C-	Las 2 respuestas anteriores son correctas.
+
+8-	Si el HB no funciona:
+A-	Se devuelve al diagnosticador.
+B-	Se comprueba conexión antenna.
+C-	Se pasa al siguiente proceso.
+D-	A y B son correctas.
+
+9-	Qué debemos marcar en SAP si lleva auricular la pieza: 
+A-	A.
+B-	C.
+C-	T.
+
+10-	Si la pieza traía identificador y no nos llega:
+A-	La sacamos tal cual nos ha llegado.
+B-	Algunos modelos es obligatorio que salgan con el.
+C-	A y B son correctas.
+
+11-	Cuando ha pasado el Pro&Go y lo escuchas a oído:
+A-	Funcionan todas las opciones.
+B-	No funciona.
+C-	Algunas veces puede que no funcione.

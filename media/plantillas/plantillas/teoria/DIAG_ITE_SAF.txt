@@ -1,0 +1,34 @@
+1-	De los siguientes colores cual NO corresponde con los colores de la carcasa:
+A-	26,22,14,06,21,28.
+B-	22,13,26,28,06,14.
+C-	a y b son correctas.
+
+2-	¿Qué auricular se puede montar en un audífono IIC o nano?
+A-	S y M.
+B-	Solo P.
+C-	Todos los auriculares.
+
+3-	Cuáles son los elementos principales un kit de un ITE.
+A-	Placa, micrófono y auricular.
+B-	Placa, micrófono, hibrido y auricular.
+C-	Micrófono y auricular.
+
+4-	A que hace referencia los números 30,50,70 y 90 en los nombres de los diferentes modelos de audífonos. Ej. Virto V70 312
+A-	A la potencia de amplificación.
+B-	A las prestaciones que ofrece el audífono.
+C-	No tiene nada que ver con la reparación, solo es un tema de marketing comercial.
+
+5-  	¿Qué tipo de rejilla existe?
+A-	MG.
+B-	MM,MJ.
+C-	MS,MG,MM.
+
+6-  	¿Qué tubo se utiliza para el S/A Hf3?
+A-	098-0158.
+B-	098-0733.
+C-	098-3305.
+
+7-  	¿Qué S/A se utiliza para titanium?
+A-	HF4.
+B-	CS.
+C-	Waspring.

@@ -1,0 +1,65 @@
+1-	Cuando cojo una orden de trabajo, ¿qué es lo primero que tengo que hacer?
+A-	Conectarme a la pulsera ESD.
+B-	Comprobar opciones/material.
+C-	Abrir hoja de RSM.
+
+2-	Marca la opción correcta:
+A-	El micrófono nunca puede estar al lado del venting.
+B-	El micrófono siempre puede estar al lado del venting.
+C-	Da igual donde esté colocado el micrófono.
+
+3-	¿Cuánto tiempo tenemos que sujetar el audífono una vez aplicado el pegamento?
+A-	50 s.
+B-	30 s.
+C-	40 s.
+
+4-	Para que el pegamento haga su función en menos tiempo, puedo soplar para que seque antes.
+A-	Sí.
+B-	No.
+C-	Depende del audífono.
+
+5-	Para pegar casquillos de cerustop :
+A-	Se aplica directamente Loctite en el casquillo.
+B-	Se aplica directamente Loctite en el tubo.
+C-	Se puede hacer de las dos formas.
+
+6-	¿Cuántos mm hay que añadir para marcar el tubo cuando lleva HBU?
+A-	3 mm.
+B-	1 mm.
+C-	2 mm.
+
+7-	¿Puede estar el condensador del circuito muy cerca de la HB?
+A-	Sí.
+B-	No.
+C-	Es indiferente.
+
+8-	En Virto V y Virto B está a máxima ganancia en el:
+A-	Programa 1.
+B-	Programa 2.
+C-	Nada más poner la pila.
+
+9-	La bobina la tengo que probar en el:
+A-	Programa 1.
+B-	Programa 2.
+C-	Programa 3.
+D-	Programa 4.
+
+10-	¿Qué tengo que hacer siempre que no estoy utilizando el pegamento?
+A-	Guardarlo en el frio.
+B-	Colocar la tapa.
+C-	Nada.
+
+11-	¿Se puede limpiar un audífono color 21 con isopropanol antes de cerrarlo?
+A-	Sí.
+B-	No.
+C-	Es indiferente.
+
+12-	El pegamento lo tengo que poner en un cristal:
+A-	Siempre.
+B-	A veces.
+C-	Es indiferente.
+
+13-	Cuando transportamos una caja con una reparación abierta:
+A-	El kit tiene que estar dentro de la bolsa ESD o suelto pero sin estar en contacto con las bolsas de plástico ni papeles.
+B-	Es indiferente ya que la caja es ESD.
+C-	Puedo llevar el kit en la mano, sin caja.
