@@ -1,0 +1,203 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Examen de Producto {{ puesto_seleccionado }}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #eef1f5;
+            padding: 30px;
+        }
+
+        form {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #222;
+        }
+
+        .info {
+            margin-bottom: 25px;
+            text-align: center;
+            color: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        select, input[type="text"] {
+            width: 100%;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        button {
+            display: block;
+            margin: 30px auto 0;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<form method="post">
+    {% csrf_token %}
+    <h1>{{ titulo }}</h1>
+
+    <div class="info">
+        <p><strong>Operario:</strong> {{ operario_nombre }}</p>
+        <p><strong>Fecha:</strong> {{ fecha }}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Nº de piezas</th>
+                <th>Estado pieza general<br>(bueno, regular, malo)</th>
+                <th>No conformidad<br>(Sí/No)</th>
+                <th>Descripción no conformidad</th>
+                <th>Tipo no conformidad<br>(Grave, leve)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in "0123456789"|make_list %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+
+                <td>
+                    <select name="estado_pieza[]">
+                        <option value="bueno">Bueno</option>
+                        <option value="regular">Regular</option>
+                        <option value="malo">Malo</option>
+                    </select>
+                </td>
+
+                <td>
+                    <select name="no_conformidad[]" class="no-conformidad" data-row="{{ forloop.counter0 }}">
+                        <option value="no">No</option>
+                        <option value="sí">Sí</option>
+                    </select>
+                </td>
+
+                <td>
+                    <input type="text" name="descripcion_no_conformidad[]" class="desc-no-conformidad fila-{{ forloop.counter0 }}" placeholder="Si aplica">
+                </td>
+
+                <td>
+                    <select name="tipo_no_conformidad[]" class="tipo-no-conformidad fila-{{ forloop.counter0 }}">
+                        <option value="grave">Grave</option>
+                        <option value="leve">Leve</option>
+                    </select>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <input type="hidden" name="operario_nombre" value="{{ operario_nombre }}">
+    <input type="hidden" name="puesto_seleccionado" value="{{ puesto_seleccionado }}">
+
+    <button type="submit">Enviar evaluación</button>
+</form>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const selects = document.querySelectorAll(".no-conformidad");
+
+        selects.forEach(select => {
+            const rowIndex = select.dataset.row;
+
+            const descInput = document.querySelector(`.desc-no-conformidad.fila-${rowIndex}`);
+            const tipoSelect = document.querySelector(`.tipo-no-conformidad.fila-${rowIndex}`);
+
+            function toggleFields() {
+                if (select.value === "sí") {
+                    descInput.style.display = "block";
+                    tipoSelect.style.display = "block";
+                } else {
+                    descInput.style.display = "none";
+                    tipoSelect.style.display = "none";
+                    descInput.value = "";  // limpiar si se oculta
+                    tipoSelect.selectedIndex = 0;
+                }
+            }
+
+            toggleFields(); // inicial
+
+            select.addEventListener("change", toggleFields);
+        });
+    });
+</script>
+
+<script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+
+</body>
+</html>

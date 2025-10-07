@@ -1,0 +1,238 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <style>
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            max-width: 95%;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+        label {
+            font-size: 25px;
+            color: white;
+            margin-right: 5px;
+        }
+        h1 {
+            font-size: 28px;
+            color: white;
+        }
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+        .boton {
+            padding: 10px 20px;
+            background-color: rgb(4, 0, 255);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        .boton:hover {
+            background-color: rgb(0, 179, 39);
+        }
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            width: 300px;
+            border-radius: 4px;
+            border: 1px solid #aaa;
+            padding: 4px 8px;
+            background-color: #fff;
+            color: #333;
+        }
+        .horizontal-form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            justify-content: center;
+        }
+        .horizontal-form > div {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        input[type="text"], select, textarea {
+            border-radius: 5px;
+            border: none;
+            padding: 5px 8px;
+            font-size: 14px;
+            width: 180px;
+        }
+        #observaciones-campo {
+            display: none;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <a href="{% url 'inicio' %}" style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background: rgba(255,255,255,0.7);
+        padding: 2px;
+    " title="Ir al inicio">
+        <img src="{% static 'fondo_esquina.png' %}" alt="inicio" style="width: 200px; height: 60px; display: block;">
+    </a>
+
+    <div style="display: flex; justify-content: center; gap: 0px; align-items: flex-start; margin-top: 0px;">
+        <h1>AUDITORIA</h1><br>
+    </div>
+
+    <div style="text-align: center;">
+        <h2>
+            {% for message in mensaje %}
+                <p class="message">{{ message }}</p>
+            {% endfor %}
+        </h2>
+    </div>
+
+    <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <form method="get" action="{% url 'auditoria_diaria' %}" style="max-width: 300px; width: 300px;">
+            {% csrf_token %}
+            {{ operario_form.as_p }}
+            <div style="display: flex; justify-content: center; margin-top: 10px;">
+                <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">FILTRAR <i class="fa fa-search" aria-hidden="true"></i></button>
+            </div>
+        </form><br>
+    </div>
+
+    {% if operarios_info %}
+    <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <form action="/registrar_auditoria" method="post">
+            {% csrf_token %}
+
+            <div class="horizontal-form">
+                {% if operarios_info.nombre %}
+                <div>
+                    <input type="hidden" name="OPERARIO" value="{{ operarios_info.nombre }}" required>
+                </div>
+                {% endif %}
+                
+                <div>
+                    <label>SAP:</label>
+                    <input type="text" name="SAP" required>
+                </div>
+                <div>
+                    <label>Número de Serie:</label>
+                    <input type="text" name="NUM_SERIE" required>
+                </div>
+                <div>
+                    <label>Familia:</label>
+                    <input type="text" name="FAMILIA" required>
+                </div>
+                {% if operarios_info.campos_validos %}
+                <div>
+                    <label for="puesto">Puesto:</label>
+                    <select id="puesto" name="PUESTO" required>
+                        <option value="" disabled selected>Selecciona un campo</option>
+                        {% for field_name, field_display in operarios_info.campos_validos %}
+                            <option value="{{ field_name }}">{{ field_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div>
+                    <label>Auditor:</label>
+                    <input type="text" name="AUDITOR" required>
+                </div>
+                
+                <div>
+                    <label>No Conformidad:</label>
+                    <input type="checkbox" id="noConformidad" name="NO_CONFORMIDAD">
+                </div>
+            </div>
+
+            <div id="observaciones-campo">
+                <label>Observaciones:</label>
+                <textarea name="OBSERVACIONES" rows="5" style="width: 98.5%;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: center; margin-top: 15px;">
+                <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">GUARDAR <i class="fa fa-save" aria-hidden="true"></i></button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+<script>
+    $(document).ready(function() {
+        $('select').select2({
+            width: '100%',
+            placeholder: 'Buscar...',
+            allowClear: true,
+            language: {
+                noResults: function() {
+                    return "Sin coincidencias";
+                }
+            }
+        });
+
+        $('#noConformidad').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#observaciones-campo').slideDown();
+            } else {
+                $('#observaciones-campo').slideUp();
+            }
+        });
+    });
+
+    document.querySelectorAll('.button-pop').forEach(button => {
+        button.addEventListener('click', function () {
+            button.classList.add('pop-effect');
+            setTimeout(() => {
+                button.classList.remove('pop-effect');
+            }, 200);
+        });
+    });
+
+    const tiempoInactividad = 15 * 60 * 1000;
+    let temporizadorInactividad;
+    function reiniciarTemporizador() {
+        clearTimeout(temporizadorInactividad);
+        temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+    }
+    function cerrarSesionPorInactividad() {
+        fetch("{% url 'timeout' %}", {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+        }).then(() => {
+            window.location.href = "{% url 'timeout' %}";
+        });
+    }
+    document.addEventListener("mousemove", reiniciarTemporizador);
+    document.addEventListener("keydown", reiniciarTemporizador);
+    document.addEventListener("click", reiniciarTemporizador);
+    reiniciarTemporizador();
+</script>
+</body>
+</html>

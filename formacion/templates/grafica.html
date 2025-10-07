@@ -1,0 +1,179 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        /* para eliminar los titulos de los formularios */
+        form p label {
+            display: none;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+
+        label, h1 {
+            font-size: 25px;
+            color: rgb(255, 255, 255);
+        }
+
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        h3 {
+            color: rgb(255, 255, 255);
+        }
+
+        a {
+            color: #00FFFF;
+            text-decoration: none;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        a:hover {
+            color: #B2FFFF;
+            text-shadow: 0 0 5px #00FFFF;
+            text-decoration: underline;
+        }
+
+        a:active {
+            color: #00CCCC;
+            text-shadow: 0 0 3px #00CCCC;
+        }
+
+        a i {
+            font-size: 24px; /* tamaño base del icono */
+            transition: transform 0.3s ease; /* transición suave para escalar */
+        }
+
+        /* Aumenta el tamaño del icono cuando pasas el ratón sobre el enlace */
+        a:hover i {
+            transform: scale(1.8); 
+        }
+
+        /* Select2 Styling */
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            border-radius: 4px;
+            border: 1px solid #aaa;
+            padding: 4px 8px;
+            background-color: #fff;
+            color: #333;
+        }
+        .fixed-download {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000; 
+        }
+        
+        
+
+    </style>
+</head>
+<body>
+<div style="width: 100%; text-align: center;">
+    <canvas id="graficaTotales"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('graficaTotales').getContext('2d');
+
+    const graficaTotales = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Formaciones', 'Formados', 'Expertos'],
+            datasets: [
+                {
+                    label: 'Formados (No Habitual)',
+                    data: [0, {{ total_count_1 }}, 0],
+                    backgroundColor: 'rgb(255, 127, 0)' // naranja
+                },
+                {
+                    label: 'Formados (Puesto Habitual)',
+                    data: [0, {{ total_count_2 }}, 0],
+                    backgroundColor: 'rgb(255, 255, 0)' // amarillo
+                },
+                {
+                    label: 'Formaciones',
+                    data: [{{ total_count_4 }}, 0, 0],
+                    backgroundColor: 'rgb(0, 153, 255)' // azul
+                },
+                {
+                    label: 'Expertos',
+                    data: [0, 0, {{ total_count_3 }}],
+                    backgroundColor: 'rgb(0, 255, 0)' // verde
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Valores en la Matriz de Polivalencia'
+                },
+                datalabels: {
+                    display: true,
+                    color: 'black',
+                    anchor: 'end',
+                    align: 'end',
+                    formatter: function(value, context) {
+                        const datasetIndex = context.datasetIndex;
+                        const dataIndex = context.dataIndex;
+                        const chart = context.chart;
+                        const datasets = chart.data.datasets;
+
+                        let sum = 0;
+                        for (let i = 0; i < datasets.length; i++) {
+                            sum += datasets[i].data[dataIndex] || 0;
+                        }
+
+                        for (let i = datasets.length - 1; i >= 0; i--) {
+                            if (datasets[i].data[dataIndex]) {
+                                if (datasetIndex === i) {
+                                    return sum;
+                                } else {
+                                    return '';
+                                }
+                            }
+                        }
+                        return '';
+                    }
+                }
+            },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+});
+</script>
+
+</body>
+</html>    

@@ -1,0 +1,434 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <style>
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+
+        label, h1 {
+            font-size: 25px;
+            color: rgb(255, 255, 255);
+        }
+
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        h3 {
+            color: rgb(255, 255, 255);
+        }
+
+        a {
+            color: #00FFFF;
+            text-decoration: none;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        a:hover {
+            color: #B2FFFF;
+            text-shadow: 0 0 5px #00FFFF;
+            text-decoration: underline;
+        }
+
+        a:active {
+            color: #00CCCC;
+            text-shadow: 0 0 3px #00CCCC;
+        }
+
+        a i {
+            font-size: 24px; /* tamaño base del icono */
+            transition: transform 0.3s ease; /* transición suave para escalar */
+        }
+
+        /* Aumenta el tamaño del icono cuando pasas el ratón sobre el enlace */
+        a:hover i {
+            transform: scale(1.8); 
+        }
+
+        f {
+            color: rgb(255, 255, 0);
+        }
+
+        .boton {
+            padding: 6px 12px;
+            background-color:rgb(4, 0, 255);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .boton:hover {
+            background-color:rgb(0, 179, 39);
+        }
+
+        .boton-deshabilitado {
+            background-color: transparent;
+            color: rgb(255, 255, 255);
+            pointer-events: none;
+            cursor: default;
+            border: 2px solid transparent;
+        }
+
+        /* Estilo extra para los select2 */
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            border-radius: 4px;
+            border: 1px solid #aaa;
+            padding: 4px 8px;
+            background-color: #fff;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Botón Home con imagen en la esquina superior izquierda -->
+    <a href="{% url 'inicio' %}" style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background: rgba(255,255,255,0.7);
+        padding: 2px;
+        transition: box-shadow 0.2s;
+    " title="Ir al inicio">
+        <img src="{% static 'fondo_esquina.png' %}" alt="inicio" style="width: 200px; height: 60px; display: block;">
+    </a>
+
+<div style="display: flex; justify-content: center; gap: 0px; align-items: flex-start; margin-top: 0px;">
+    <h1>FORMACION COMPLETA</h1><br>
+    </div>
+
+<div style="text-align: center;">
+    <H2>
+        {% for message in mensaje %}
+            <p class="message">{{ message }}</p>
+        {% endfor %}
+    </H2>
+</div>
+
+<div style="display: flex; justify-content: center; gap: 20px; align-items: flex-start; margin-top: 20px;">
+    <!-- Primer formulario -->
+    <form method="get" style="width: 30%; text-align: center;">
+        {% csrf_token %}
+        <label><h2>TÉCNICOS</h2></label>
+        {{ operario_form.as_p }}
+        <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">FILTRAR <i class="fa fa-search" aria-hidden="true"></i></button>
+
+        {% if operarios_info %}
+            <div style="text-align: center; margin-top: 20px;">
+                <h3>{{ operarios_info.nombre }} se está formando en:</h3>
+                <ul style="list-style: none; padding: 0;">
+                    {% for clave, etiqueta in operarios_info.campos_validos %}
+                        <li>
+                            <a href="javascript:void(0);" onclick="selectOperario('{{ clave }}')">{{ etiqueta }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </form>
+
+    <!-- Segundo formulario -->
+    <form method="get" style="width: 30%; text-align: center;">
+        {% csrf_token %}
+        <label><h2>PUESTOS</h2></label>
+        {{ puesto_form.as_p }}
+        <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">FILTRAR <i class="fa fa-search" aria-hidden="true"></i></button>
+
+        {% if tecnicos_info or puesto_info %}
+            <div style="display: flex; justify-content: center; margin-top: 20px;">
+                {% if tecnicos_info %}
+                    <div style="width: 48%;">
+                        <h3>Técnicos formándose en: {{ puesto_traducido }}</h3>
+                        <ul style="list-style: none; padding: 0;">
+                            {% for tecnico in tecnicos_info %}
+                                <li>
+                                    <a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </form>
+
+    <!-- Tercer formulario -->
+    <form method="post" style="width: 30%; text-align: center;">
+        {% csrf_token %}
+        {% if operarios_info.nombre and puesto_seleccionado %}
+            <label><h2>{{ operarios_info.nombre }} en {{ puesto_traducido }}</h2></label>
+            {{ completa_form.as_p }}
+            <!-- Mostrar resultados -->
+                <div style="margin-top: 20px; text-align: center;">
+                    <h3>Estado de la formación:</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        {% with show_button=True %}
+                    <!-- TEORIA -->
+                    <li>
+                        <f><span>TEORÍA:</span></f> 
+                        {% if completa_form.initial.TEORIA %}
+                            <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                        {% else %}
+                            <span style="color: red;">&#10060;</span>
+                            <button type="button" class="boton" onclick="copiarURLAlClipboard()">Copiar enlace</button>
+                            {% if admin %}
+                            <a href="{% url 'completar_teoria' %}?puesto_seleccionado={{ puesto_seleccionado }}&operario_nombre={{ operarios_info.nombre }}" class="boton">Completar</a>
+                            {% endif %}
+                            {% with show_button=False %}
+                            {% endwith %}
+                        {% endif %}
+                    </li><br>
+
+                    <!-- PRACTICA -->
+                    {% if not completa_form.initial.TEORIA %}
+                        {% with show_button=False %}
+                        {% endwith %}
+                    {% endif %}
+                    <li>
+                        <f><span>PRÁCTICA:</span></f> 
+                        {% if completa_form.initial.PRACTICA %}
+                            <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                        {% else %}
+                            <span style="color: red;">&#10060;</span>
+                            {% if completa_form.initial.TEORIA %}
+                            <a href="{% url 'completar_practica' %}?puesto_seleccionado={{ puesto_seleccionado }}&operario_nombre={{ operarios_info.nombre }}" class="boton">Completar</a>
+                            {% with show_button=False %}
+                            {% endwith %}
+                            {% endif %}
+                        {% endif %}
+                    </li><br>
+
+                    <!-- PRODUCTO -->
+                    {% if completa_form.initial.TEORIA and completa_form.initial.PRACTICA %}
+                        <li>
+                            <f><span>PRODUCTO:</span></f> 
+                            {% if completa_form.initial.PRODUCTO %}
+                                <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                            {% else %}
+                                <span style="color: red;">&#10060;</span>
+                                <a href="{% url 'completar_producto' %}?puesto_seleccionado={{ puesto_seleccionado }}&operario_nombre={{ operarios_info.nombre }}" class="boton">Completar</a>
+                            {% endif %}
+                        </li>
+                    {% else %}
+                    <f><span>PRODUCTO:</span></f><span style="color: red;">&#10060;</span>
+                    {% endif %}
+                    <!-- MOSTRAR 4 BOTONES SI TODO COMPLETO -->
+                    {% if completa_form.initial.TEORIA and completa_form.initial.PRACTICA and completa_form.initial.PRODUCTO %}
+                        <div style="margin-top: 30px;">
+                            <h3>Firmas:</h3>
+
+                            <div style="display: flex; justify-content: center; gap: 40px;">
+
+                                <!-- Alumno -->
+                                <div style="text-align: center;">
+                                    {% if estado_firmas.firma_alumno %}
+                                        <a class="boton boton-deshabilitado"><f>Alumno</f></a><br><br>
+                                        <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                                    {% else %}
+                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_alumno&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Alumno</f></a><br><br>
+                                        <span style="color: red; font-size: 20px;">&#10060;</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Formador -->
+                                <div style="text-align: center;">
+                                    {% if estado_firmas.firma_formador %}
+                                        <a class="boton boton-deshabilitado"><f>Formador</f></a><br><br>
+                                        <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                                    {% else %}
+                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_formador&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Formador</f></a><br><br>
+                                        <span style="color: red; font-size: 20px;">&#10060;</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Responsable -->
+                                <div style="text-align: center;">
+                                    {% if estado_firmas.firma_responsable %}
+                                        <a class="boton boton-deshabilitado"><f>Responsable</f></a><br><br>
+                                        <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                                    {% else %}
+                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_responsable&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Responsable</f></a><br><br>
+                                        <span style="color: red; font-size: 20px;">&#10060;</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Dpto. Training -->
+                                <div style="text-align: center;">
+                                    {% if estado_firmas.firma_dpto %}
+                                        <a class="boton boton-deshabilitado"><f>Dpto. Training</f></a><br><br>
+                                        <span style="color: rgb(0, 255, 0);">&#10004;</span>
+                                    {% else %}
+                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_dpto&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Dpto. Training</f></a><br><br>
+                                        <span style="color: red; font-size: 20px;">&#10060;</span>
+                                    {% endif %}
+                                </div>
+
+                            </div>
+                        </div><br>
+
+                    {% endif %}
+                    {% if estado_firmas.firma_alumno and estado_firmas.firma_formador and estado_firmas.firma_responsable and estado_firmas.firma_dpto %}
+                        {%if estado_firmas.PDF %}
+                        <div style="display: flex; gap: 40px; align-items: center; justify-content: center">
+  <div>
+    <h3>Documento de formación:</h3>
+    {{ operario.nombre }}
+    <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
+      <i class="fa-regular fa-eye"></i><br><br>
+      Ver PDF
+    </a>
+  </div>
+  <div>
+    <h3>Editar valor en la Matriz:</h3>
+    <a href="{% url 'editar_matriz' %}?OPERARIO={{ operarios_info.nombre }}&PUESTO={{ puesto_seleccionado }}">
+      <i class="fa fa-pencil" aria-hidden="true"></i><br><br>
+      Ir a la Matriz
+    </a>
+  </div>
+</div>
+
+                        {% else %}
+                        <h3>Documento de formación:</h3>
+                        <a href="{% url 'generar_pdf' %}?operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton">Generar PDF</a><br><br>
+                        {% endif %}
+                    {% endif %}
+
+                {% endwith %}
+                    </ul>
+                </div>
+        {% else %}
+            <label><h2>Seleccione un OPERARIO y un PUESTO</h2></label>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Funciones JS para selección -->
+<script>
+    function selectOperario(campo) {
+        var urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('PUESTO', campo);
+        var newUrl = window.location.pathname + '?' + urlParams.toString();
+        window.location.href = newUrl;
+    }
+
+    function selectTecnico(tecnico) {
+        var urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('OPERARIO', tecnico);
+        var newUrl = window.location.pathname + '?' + urlParams.toString();
+        window.location.href = newUrl;
+    }
+
+    function selectOpi(opi) {
+        var urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('opi', opi);
+        var newUrl = window.location.pathname + '?' + urlParams.toString();
+        window.location.href = newUrl;
+    }
+
+    // Activar Select2 en todos los <select>
+    $(document).ready(function() {
+        $('select').select2({
+            width: '100%',
+            placeholder: 'Buscar...',
+            allowClear: true,
+            language: {
+                noResults: function() {
+                    return "Sin coincidencias";
+                }
+            }
+        });
+    });
+    // Efecto pop al hacer click en cualquier botón con .button-pop
+        document.querySelectorAll('.button-pop').forEach(button => {
+            button.addEventListener('click', function () {
+                button.classList.add('pop-effect');
+                setTimeout(() => {
+                    button.classList.remove('pop-effect');
+                }, 200); // Debe coincidir con la duración de la transición
+            });
+        });
+</script>
+<script>
+function copiarURLAlClipboard() {
+    const baseUrl = window.location.origin + "{% url 'completar_teoria' %}";
+    const operario = encodeURIComponent("{{ operarios_info.nombre }}");
+    const puesto = encodeURIComponent("{{ puesto_seleccionado }}");
+
+    const fullUrl = `${baseUrl}?operario_nombre=${operario}&puesto_seleccionado=${puesto}`;
+
+    navigator.clipboard.writeText(fullUrl)
+        .then(() => {
+            alert("Enlace al examen copiado al portapapeles:\n" + fullUrl);
+        })
+        .catch(err => {
+            console.error("Error al copiar:", err);
+            alert("No se pudo copiar la URL");
+        });
+}
+</script>
+
+<script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+</body>
+</html>

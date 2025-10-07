@@ -1,0 +1,199 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Examen Teórico {{ puesto_seleccionado }}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f7fa;
+            background-image: url("{% static 'fondo_esquina.png' %}");
+            background-size: 200px 60px;
+            background-repeat: no-repeat;
+            background-position: 10px 10px;
+            background-attachment: fixed;
+            padding: 20px;
+        }
+
+        form {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .pregunta {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fdfdfd;
+        }
+
+        .pregunta strong {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .opcion {
+            margin: 5px 0;
+        }
+
+        .opcion input {
+            margin-right: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #28a745;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+        }
+
+        /* Estilo para modal de bienvenida */
+        #introModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        #introContent {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        #introContent h2 {
+            margin-bottom: 15px;
+        }
+
+        #introContent button {
+            background-color: #28a745;
+        }
+
+        #examContainer {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Modal de bienvenida -->
+    <div id="introModal">
+        <div id="introContent">
+            <h2>¡Bienvenido {{ operario_nombre }}!</h2>
+            <p>Vas a realizar el examen teórico de <strong>{{ puesto_traducido }}</strong>.</p>
+            <p>Cuando estés listo, pulsa "Comenzar".</p>
+            <p><strong>¡MUCHA SUERTE!</strong></p>
+            <button id="startButton">Comenzar</button>
+        </div>
+    </div>
+
+    <!-- Contenedor del examen -->
+    <div id="examContainer">
+        <form method="post">
+            {% csrf_token %}
+            <h1>{{ titulo }}</h1>
+
+            <p><strong>Operario:</strong> {{ operario_nombre }}</p>
+            <p><strong>Fecha:</strong> {{ fecha }}</p>
+
+            {% for pregunta in preguntas %}
+                <div class="pregunta">
+                    <strong>{{ pregunta.indice }}. {{ pregunta.texto }}</strong>
+
+                    {% if pregunta.error %}
+                        <div class="error">⚠ Esta pregunta tiene múltiples respuestas correctas marcadas.</div>
+                    {% endif %}
+
+                    {% for opcion in pregunta.opciones %}
+                        <div class="opcion">
+                            <label>
+                                <input type="radio" name="respuesta_{{ pregunta.indice }}" value="{{ opcion.letra }}">
+                                {{ opcion.letra }} - {{ opcion.texto }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <input type="hidden" name="operario_nombre" value="{{ operario_nombre }}">
+            <input type="hidden" name="puesto_seleccionado" value="{{ puesto_seleccionado }}">
+
+            <div style="text-align:center;">
+                <button type="submit">Enviar examen</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('startButton').addEventListener('click', function() {
+            document.getElementById('introModal').style.display = 'none';
+            document.getElementById('examContainer').style.display = 'block';
+            window.scrollTo(0,0);
+        });
+    </script>
+
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+
+</body>
+</html>

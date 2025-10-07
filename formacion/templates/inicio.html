@@ -1,0 +1,205 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body {
+            text-align: center;
+            background-color: #f5f7fa;
+            background-image: url("{% static 'fondo_esquina.png' %}");
+            background-size: auto;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+            transition: background-size 1s ease, background-position 0.8s ease; /* transición como el otro */
+            background-size: 800px 240px; /* Tamaño inicial */
+            background-position: center center;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        label, h1 {
+            font-size: 25px;
+            color: rgb(255, 255, 255);
+        }
+
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        .button-ripple {
+        position: relative;
+        overflow: hidden;
+        }
+
+        .button-ripple::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        transform: scale(0);
+        background: rgba(255, 255, 255, 0.6);
+        animation: ripple 0.6s linear;
+        }
+
+        @keyframes ripple {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+        }
+        .fixed-exit {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000; 
+        }
+
+        .fixed-notif {
+            position: fixed;
+            top: 10px;
+            right: 230px;
+            z-index: 1000; 
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-image"></div>
+
+    {% if user.is_authenticated %}
+        <form class="fixed-exit no-animacion" action="{% url 'logout_message' %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">Cerrar sesión<br><i class="fa fa-sign-out" aria-hidden="true"></i></button>
+        </form>
+    {% endif %}
+
+    {% if notificaciones %}
+        <form class="fixed-notif no-animacion" action="{% url 'notificaciones' %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">NOTIFICACIONES<br><i class="fa fa-envelope" aria-hidden="true"></i></button>
+        </form> 
+    {% endif %}
+
+    <div class="content">
+        <h1>FORMACIONES SONOVA RCSE</h1><br>
+        <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+            <form class="button-pop no-animacion" action="/actualizar_matriz" method="POST">
+                {% csrf_token %}
+                <input type="submit" value="Actualizar Matriz de Polivalencia">
+            </form>
+            <form action="/editar_matriz" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">
+                    <i class="fas fa-pencil-alt"></i> Matriz de Polivalencia
+                </button>
+            </form>
+        </div>
+
+        <div style="text-align: center;">
+            <h2>
+                {% for message in mensaje %}
+                    <p class="message">{{ message }}</p>
+                {% endfor %}
+            </h2>
+        </div>
+
+        <form action="/formacion_completa" method="POST">
+            {% csrf_token %}
+            <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">
+                <i class="fas fa-graduation-cap" aria-hidden="true"></i> FORMACIONES COMPLETAS
+            </button>
+        </form>
+
+        <form action="/formacion_opis" method="POST">
+            {% csrf_token %}
+            <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">
+                <i class="fa fa-refresh" aria-hidden="true"></i> OPIS
+            </button>
+        </form><br><br>
+        <form action="/auditoria_diaria" method="POST">
+            {% csrf_token %}
+            <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">
+                <i class="fa fa-check-square" aria-hidden="true"></i> AUDITORIA
+            </button>
+        </form>
+    </div>
+
+    <div id="loader"></div>
+
+    <script>
+        // Aplica la animación y spinner al enviar CUALQUIER formulario
+        const forms = document.querySelectorAll('form');
+
+        forms.forEach(form => {
+            if (!form.classList.contains('no-animacion')) {
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    loader.style.display = 'block';
+                    document.body.classList.add('animate-background');
+                    setTimeout(() => {
+                        form.submit();
+                    }, 1000);
+                });
+            }    
+        });
+        // Efecto pop al hacer click en cualquier botón con .button-pop
+        document.querySelectorAll('.button-pop').forEach(button => {
+            button.addEventListener('click', function () {
+                button.classList.add('pop-effect');
+                setTimeout(() => {
+                    button.classList.remove('pop-effect');
+                }, 200); // Debe coincidir con la duración de la transición
+            });
+        });
+    </script>
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+</body>
+</html>

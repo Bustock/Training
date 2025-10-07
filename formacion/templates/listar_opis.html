@@ -1,0 +1,202 @@
+{% load static %}
+
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body {
+            text-align: center;
+            background-color: #f5f7fa;
+            background-image: url("{% static 'fondo_esquina.png' %}");
+            background-size: 800px 240px;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+            transition: background-size 1s ease, background-position 0.8s ease;
+        }
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        label, h1 {
+            font-size: 25px;
+            color: rgb(255, 255, 255);
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 20px;
+            border: 1px solid #ddd;
+            font-size: 18px;
+        }
+        th {
+            background-color: rgb(0, 132, 203);
+            color: white;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        li {
+            margin: 5px 0;
+            font-size: 18px;
+        }
+        .message, h2 {
+            color: rgba(63, 72, 204, 0.829);
+        }
+        .button-aceptar, .button-rechazar {
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-left: 5px;
+            font-size: 14px;
+            text-decoration: none;
+            color: white;
+        }
+        .button-aceptar {
+            background-color: green;
+        }
+        .button-rechazar {
+            background-color: red;
+        }
+        .fixed-exit {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <form class="fixed-exit no-animacion" action="{% url 'logout_message' %}" method="post">
+        {% csrf_token %}
+        <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">
+            Cerrar sesión<br><i class="fa fa-sign-out" aria-hidden="true"></i>
+        </button>
+    </form>
+    {% endif %}
+
+    <h1>NUEVAS OPIS</h1>
+
+    {% if messages %}
+        <ul class="messages">
+        {% for message in messages %}
+            <h2><p{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+                {{ message }}</p></h2>
+        {% endfor %}
+        </ul>
+    {% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>OPI</th>
+                <th>Secciones afectadas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if not opis_lista %}
+            <tr>
+                <td colspan="2" class="message">No hay OPI pendientes.</td>
+            </tr>
+            {% endif %}
+            {% for opi in opis_lista %}
+            <tr>
+                <td>{{ opi.nombre }}</td>
+                <td>
+                    <ul>
+                        {% for seccion in opi.secciones_aceptadas %}
+                            <li style="color: green;">{{ seccion }} ✅</li>
+                        {% endfor %}
+                        {% for seccion in opi.secciones_rechazadas %}
+                            <li style="color: red;">{{ seccion }} ❌</li>
+                        {% endfor %}
+                        {% for seccion in opi.secciones_pendientes %}
+                            <li>
+                                {{ seccion }}
+                                <a href="{% url 'aceptar_opi' %}?opi_nombre={{ opi.nombre|urlencode }}&puesto={{ seccion|urlencode }}" class="button-aceptar button-pop">✅ Aceptar</a>
+                                <a href="{% url 'rechazar_opi' %}?opi_nombre={{ opi.nombre|urlencode }}&puesto={{ seccion|urlencode }}" class="button-rechazar button-pop">❌ Rechazar</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="loader"></div>
+
+    <script>
+        // Animación de fondo y loader en formularios
+        const forms = document.querySelectorAll('form');
+        const loader = document.getElementById('loader');
+        forms.forEach(form => {
+            if (!form.classList.contains('no-animacion')) {
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    loader.style.display = 'block';
+                    document.body.classList.add('animate-background');
+                    setTimeout(() => {
+                        form.submit();
+                    }, 1000);
+                });
+            }
+        });
+        // Efecto pop en botones
+        document.querySelectorAll('.button-pop').forEach(button => {
+            button.addEventListener('click', function () {
+                button.classList.add('pop-effect');
+                setTimeout(() => {
+                    button.classList.remove('pop-effect');
+                }, 200);
+            });
+        });
+
+        // Cierre por inactividad
+        const tiempoInactividad = 15 * 60 * 1000;
+        let temporizadorInactividad;
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+        function cerrarSesionPorInactividad() {
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+        reiniciarTemporizador();
+    </script>
+</body>
+</html>
+{% endblock %}

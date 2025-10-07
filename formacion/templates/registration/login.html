@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>SRCSE TRAINING Tool</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button style="font-size: 18px; padding: 10px 30px;" type="submit">Iniciar sesión<br><i class="fa fa-sign-in" aria-hidden="true"></i></button>
+  </form>
+  <br><br>
+  <a href="{% url 'registro' %}">¿No tienes cuenta? Regístrate</a>
+  {% if messages %}
+    <ul class="messages">
+    {% for message in messages %}
+        <h2><p{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+            {{ message }}</p></h2>
+    {% endfor %}
+    </ul>
+    
+{% endif %}
+{% endblock %}

@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            background-color: #f5f7fa; /* Color de fondo */
+            background-image: url("{% static 'fondo_esquina.png' %}"); /* Imagen de fondo */
+            background-size: 200px 60px; /* Ajusta el tamaño de la imagen */
+            background-repeat: no-repeat; /* Evita que la imagen se repita */
+            background-position: 10px 10px; /* Posiciona la imagen en la esquina superior izquierda */
+            background-attachment: fixed; /* Fija la imagen al fondo */
+        }
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        label, h1 {
+            font-size: 25px; /* Ajusta el tamaño del texto de las etiquetas */
+            color: rgb(255, 255, 255); /* Color de texto blanco */
+        }
+
+        /* Estilo para los mensajes */
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        /* Estilo para las etiquetas h3 */
+        h3 {
+            color: rgb(255, 255, 255);
+        }
+
+        /* Estilo para el canvas */
+        #signature-pad {
+            border: 1px solid #000;
+            width: 600px;
+            height: 300px;
+            background-color: #ffffff;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <form method="post" action="{% url 'subir_firma' %}" enctype="multipart/form-data" id="firma-form">
+        <label><h2>FIRMA Y DNI</h2>
+        <p><strong>OPI:</strong> {{ opi }}</p>
+        <label for="responsable"><strong>Responsable de la formacion:</strong></label>
+        <input type="text" id="responsable" name="responsable" required>
+        <p><strong>Operario:</strong> {{ operario }}</p></label>
+
+        
+            {% csrf_token %}
+            <input type="hidden" name="opi" value="{{ opi }}">
+            <input type="hidden" name="operario" value="{{ operario }}">
+            
+            <label for="dni"><strong>DNI:</strong></label>
+            <input type="text" id="dni" name="dni" pattern="\d{8}[A-Za-z]" title="Debe contener 8 dígitos y una letra" required><br><br>
+            
+            <label for="firma">Firma:</label><br>
+            <canvas id="signature-pad"></canvas><br>
+            <button type="button" id="clear">Limpiar</button>
+            
+            <input type="hidden" id="imagen" name="imagen">
+            <button type="submit" id="guardar">Guardar</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var canvas = document.getElementById('signature-pad');
+            var signaturePad = new SignaturePad(canvas);
+            var clearButton = document.getElementById('clear');
+            var guardarButton = document.getElementById('guardar');
+            var imagenInput = document.getElementById('imagen');
+            var form = document.getElementById('firma-form');
+
+            // Ajustar el tamaño del canvas
+            function resizeCanvas() {
+                var ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                signaturePad.clear(); // Borrar la firma existente
+            }
+
+            window.addEventListener("resize", resizeCanvas);
+            resizeCanvas();
+
+            clearButton.addEventListener('click', function() {
+                signaturePad.clear();
+            });
+
+            guardarButton.addEventListener('click', function(event) {
+                if (signaturePad.isEmpty()) {
+                    alert("Por favor, dibuja tu firma.");
+                    event.preventDefault();  // Evitar que el formulario se envíe
+                } else {
+                    var dataURL = signaturePad.toDataURL('image/png');
+                    console.log(dataURL);  // Agregar mensaje de depuración
+                    imagenInput.value = dataURL;
+                }
+            });
+        });
+    </script>
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+</body>
+</html>

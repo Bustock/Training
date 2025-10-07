@@ -1,0 +1,458 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+
+    <!-- Select2 CSS & JS + jQuery -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        /* para eliminar los titulos de los formularios */
+        form p label {
+            display: none;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+
+        label, h1 {
+            font-size: 25px;
+            color: rgb(255, 255, 255);
+        }
+
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        h3 {
+            color: rgb(255, 255, 255);
+        }
+
+        a {
+            color: #00FFFF;
+            text-decoration: none;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+
+        a:hover {
+            color: #B2FFFF;
+            text-shadow: 0 0 5px #00FFFF;
+            text-decoration: underline;
+        }
+
+        a:active {
+            color: #00CCCC;
+            text-shadow: 0 0 3px #00CCCC;
+        }
+
+        a i {
+            font-size: 24px; /* tamaño base del icono */
+            transition: transform 0.3s ease; /* transición suave para escalar */
+        }
+
+        /* Aumenta el tamaño del icono cuando pasas el ratón sobre el enlace */
+        a:hover i {
+            transform: scale(1.8); 
+        }
+
+        /* Select2 Styling */
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            border-radius: 4px;
+            border: 1px solid #aaa;
+            padding: 4px 8px;
+            background-color: #fff;
+            color: #333;
+        }
+        .fixed-download {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000; 
+            text-align: center;
+        }
+        
+        #graficaTotales {
+            max-width: 400px;  /* ancho máximo */
+            max-height: 300px; /* alto máximo */
+            width: 100%;       /* adaptable */
+            height: auto;      /* mantiene proporción */
+            margin: 0 auto;    /* centra la gráfica */
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Botón Home con imagen en la esquina superior izquierda -->
+    <a href="{% url 'inicio' %}" style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 2px;
+        transition: box-shadow 0.2s;
+    " title="Ir al inicio">
+        <img src="{% static 'fondo_esquina.png' %}" alt="inicio" style="width: 200px; height: 60px; display: block;">
+    </a>
+    <form class="button-pop fixed-download" style="font-size: 18px; padding: 10px 20px;" action="{% url 'descargar_polivalencia' %}" method="get">    
+    <button type="submit" style="justify-content: center; font-size: 18px; padding: 10px 30px;">
+        <i class="fa fa-download" aria-hidden="true"></i>
+    </button><br>
+    <a href="{% url 'grafica' %}" style="display: inline-block; background-color:rgba(0, 123, 255, 0); color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-size: 1.5rem; text-align: center;">
+            Formaciones: {{ total_count_4 }}<br>
+            Formados: {{ total_count_1_2 }}<br>    
+            Expertos: {{ total_count_3 }}<br>        
+        </a>
+    </form>
+    <div style="display: flex; justify-content: center; gap: 10px; align-items: flex-start; margin-top: 0px;">
+        <h1>MATRIZ DE POLIVALENCIA</h1>
+        
+        
+        
+        
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 20px; align-items: flex-start; margin-top: 0px;">
+        <form method="post" style="width: 20%; text-align: center;" action="{% url 'agregar_tecnico' %}" >
+            {% csrf_token %}
+            <label for="nuevo_tecnico">Añadir nuevo técnico</label><br><br>
+            <input type="text" name="nuevo_tecnico" id="nuevo_tecnico" required placeholder="Escribe el nombre aquí..." style="padding: 6px; width: 100%; box-sizing: border-box;"><br><br>
+            <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">AÑADIR<br> <i class="fa fa-user-plus" aria-hidden="true"></i></button>
+        </form>
+        <form id="eliminarForm" method="post" style="width: 20%; text-align: center;" action="{% url 'eliminar_tecnico' %}">
+            {% csrf_token %}
+            <label for="eliminar_tecnico">Eliminar técnico</label>
+            {{ eliminar_form.as_p }}
+            <button type="button" class="button-pop" onclick="abrirModal()" style="font-size: 18px; padding: 10px 30px;">
+                ELIMINAR<br> <i class="fa fa-user-times" aria-hidden="true"></i>
+            </button>
+        </form>
+        <!-- Modal -->
+        <div id="modalConfirmacion" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center;">
+            <div style="background: white; padding: 20px 30px; border-radius: 10px; text-align: center; max-width: 400px; margin: auto;">
+                <p style="font-size: 24px;">¿Seguro que quieres eliminarlo?<br> (No se podrá recuperar)</p>
+                <button onclick="enviarFormulario()" style="background-color: rgb(35, 221, 35); color: white; padding: 10px 20px; margin-right: 10px;">Aceptar</button>
+                <button onclick="cerrarModal()" style="background-color: red; color: white; padding: 10px 20px;">Cancelar</button>
+            </div>
+        </div>
+    </div> 
+
+    <div style="text-align: center;">
+        <H2>
+            {% for message in mensaje %}
+                <p class="message">{{ message }}</p>
+            {% endfor %}
+        </H2>
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 20px; align-items: flex-start; margin-top: 0px;">
+        <form method="get" style="width: 70%; text-align: center;">
+            {% csrf_token %}
+            <!-- Botón FILTRAR centrado arriba -->
+            <div style="width: 100%; text-align: center; margin-bottom: 20px;">
+                <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">
+                    FILTRAR <i class="fa fa-search" aria-hidden="true"></i>
+                </button>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 5px;">
+                <!-- Columna TÉCNICOS -->
+                <div style="width: 100%; text-align: center;">
+                    <label for="filtrar_operarios">Operarios</label>
+                    {{ operario_form.as_p }}
+                    
+                    {% if operarios_info %}
+                        <div style="margin-top: 20px;">
+                            <h3>{{ operarios_info.nombre }} recibió formación en:</h3>
+                            <ul style="list-style: none; padding: 0;">
+                                {% for clave, etiqueta, valor in operarios_info.campos_con_valor %}
+                                    <li><a href="javascript:void(0);" onclick="selectOperario('{{ clave }}')">{{ etiqueta }}</a>:{{ valor }}</li>
+                                {% endfor %}
+                            </ul>
+
+                            <h3 style="margin-top: 20px;">{{ operarios_info.nombre }} no está formado en:</h3>
+                            <ul style="list-style: none; padding: 0;">
+                                {% for clave, etiqueta in operarios_info.campos_cero %}
+                                    <li><a href="javascript:void(0);" onclick="selectOperario('{{ clave }}')">{{ etiqueta }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Columna PUESTOS -->
+                <div style="width: 100%; text-align: center;">
+                    <label for="filtrar_puestos">Puestos</label>
+                    {{ puesto_form.as_p }}
+
+                    {% if tecnicos_info or puesto_info %}
+
+                        <h3>En este puesto:</h3>
+                        <h3>
+                            Expertos: {{ count_3 }} | 
+                            Formados: {{ count_1_2 }} | 
+                            Formaciones: {{ count_4 }}
+                        </h3>
+
+                        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                            {% if tecnicos_info %}
+                                <div style="width: 48%;">
+                                    <h3>EXPERTOS </h3>
+                                    <ul style="list-style: none; padding: 0;">
+                                        {% for tecnico in tecnicos_info.con_valor_3 %}
+                                            <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div style="width: 48%;">
+                                    <h3>FORMADOS</h3>
+                                    <ul style="list-style: none; padding: 0;">
+                                        {% for tecnico in tecnicos_info.con_valor_1_2 %}
+                                            <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div style="width: 48%;">
+                                    <h3>EN FORMACION</h3>
+                                    <ul style="list-style: none; padding: 0;">
+                                        {% for tecnico in tecnicos_info.con_valor_4 %}
+                                            <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </form>
+
+        <form method="post" action="{% url 'editar_tecnico' %}">
+            {% csrf_token %}
+            {% if operarios_info.nombre and puesto_seleccionado %}
+                <label><h2>{{ operarios_info.nombre }} en {{ puesto_traducido }}</h2></label>
+                {{ completa_form.as_p }}
+
+                <!-- Mostrar resultados -->
+                <div style="margin-top: 20px; text-align: center;">
+                    <h3>Estado de la formación:</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        {% if nivel == 0 %}
+                            <label><h1 style="color: rgb(255, 0, 0);">Nivel 0: Sin Formacion</h1></label><br>
+
+                        {% elif nivel == 1 %}
+                            <label><h1 style="color: rgb(255, 127, 0);">Nivel 1: Formado, NO es su puesto habitual</h1></label><br>
+                            <h3>Documento de formación:</h3>
+                            {{ operario.nombre }}
+                                        <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
+                                            <i class="fa-regular fa-eye"></i><br><br>
+                                            Ver PDF
+                                        </a>
+                        {% elif nivel == 2 %}
+                            <label><h1 style="color: rgb(255, 255, 0);">Nivel 2: Formado, es su PUESTO HABITUAL</h1></label><br>
+                            <h3>Documento de formación:</h3>
+                            {{ operario.nombre }}
+                                        <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
+                                            <i class="fa-regular fa-eye"></i><br><br>
+                                            Ver PDF
+                                        </a>
+                        {% elif nivel == 3 %}
+                            <label><h1 style="color: rgb(0, 255, 0);">Nivel 3: EXPERTO, puede ayudar a formar a otros</h1></label><br>
+                            <h3>Documento de formación:</h3>
+                            {{ operario.nombre }}
+                                        <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
+                                            <i class="fa-regular fa-eye"></i><br><br>
+                                            Ver PDF
+                                        </a>
+                        {% elif nivel == 4 %}
+                            <label><h1 style="color: rgb(0, 153, 255);">Nivel 4: En Formación</h1></label>        
+                        {% endif %}
+                    </ul>
+                    <input type="hidden" name="operario" value="{{ operarios_info.nombre }}">
+                    <input type="hidden" name="puesto" value="{{ puesto_seleccionado }}">
+                    <label for="nuevo_valor">Modificar nivel:</label>
+                    <select name="nuevo_valor" id="nuevo_valor" required>
+                        <option value="0">0 - Sin Formación</option>
+                        <option value="1">1 - Formado, NO es su puesto habitual</option>
+                        <option value="2">2 - Formado, es su puesto habitual</option>
+                        <option value="3">3 - Experto</option>
+                        <option value="4">4 - En Formación</option>
+                    </select><br><br>
+                    <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">ACTUALIZAR <i class="fa fa-refresh" aria-hidden="true"></i></button>
+                </div>
+            {% else %}
+                <label><h2>Seleccione OPERARIO y PUESTO</h2></label>
+            {% endif %}
+        </form>
+
+    </div>
+
+    <script>
+        function selectOperario(campo) {
+            var urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('PUESTO', campo);
+            var newUrl = window.location.pathname + '?' + urlParams.toString();
+            window.location.href = newUrl;
+        }
+
+        function selectTecnico(tecnico) {
+            var urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('OPERARIO', tecnico);
+            var newUrl = window.location.pathname + '?' + urlParams.toString();
+            window.location.href = newUrl;
+        }
+
+        function selectOpi(opi) {
+            var urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('opi', opi);
+            var newUrl = window.location.pathname + '?' + urlParams.toString();
+            window.location.href = newUrl;
+        }
+
+        // Activar Select2 para todos los selects
+        $(document).ready(function() {
+            $('select').select2({
+                width: '100%',
+                placeholder: 'Buscar...',
+                allowClear: true,
+                language: {
+                    noResults: function() {
+                        return "Sin coincidencias";
+                    }
+                }
+            });
+        });
+        function confirmarEliminacion() {
+        return confirm("¿Estás seguro de que quieres eliminar al técnico?");
+    }
+    function confirmarEliminacion() {
+        return confirm("¿Estás seguro de que deseas eliminar este técnico?");
+    }
+    </script>
+    <!-- JavaScript -->
+    <script>
+        function abrirModal() {
+            document.getElementById('modalConfirmacion').style.display = 'flex';
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalConfirmacion').style.display = 'none';
+        }
+
+        function enviarFormulario() {
+            document.getElementById('eliminarForm').submit();
+        }
+        // Efecto pop al hacer click en cualquier botón con .button-pop
+        document.querySelectorAll('.button-pop').forEach(button => {
+            button.addEventListener('click', function () {
+                button.classList.add('pop-effect');
+                setTimeout(() => {
+                    button.classList.remove('pop-effect');
+                }, 200); // Debe coincidir con la duración de la transición
+            });
+        });
+    </script>
+
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('graficaTotales').getContext('2d');
+    const graficaTotales = new Chart(ctx, {
+        type: 'bar', 
+        data: {
+            labels: ['Formaciones', 'Expertos', 'Formados'],
+            datasets: [{
+                label: 'Cantidad total',
+                data: [{{ total_count_4 }}, {{ total_count_3 }}, {{ total_count_1_2 }}],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.6)', // verde agua
+                    'rgba(255, 206, 86, 0.6)', // amarillo
+                    'rgba(54, 162, 235, 0.6)'  // azul
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(54, 162, 235, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Totales por nivel en todos los puestos'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    stepSize: 1
+                }
+            }
+        }
+    });
+});
+</script>
+
+</body>
+</html>

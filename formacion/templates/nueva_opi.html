@@ -1,0 +1,177 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <style>
+        body {
+            text-align: center;
+            background-color: #f5f7fa; /* Color de fondo */
+            background-image: url("{% static 'fondo_esquina.png' %}"); /* Imagen de fondo */
+            background-size: 200px 60px; /* Ajusta el tamaño de la imagen */
+            background-repeat: no-repeat; /* Evita que la imagen se repita */
+            background-position: 10px 10px; /* Posiciona la imagen en la esquina superior izquierda */
+            background-attachment: fixed; /* Fija la imagen al fondo */
+        }
+        form, h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        label, h1 {
+            font-size: 25px; /* Ajusta el tamaño del texto de las etiquetas */
+            color: rgb(255, 255, 255); /* Color de texto blanco */
+        }
+
+        /* Estilo para los mensajes */
+        .message {
+            color: rgba(63, 72, 204, 0.829);
+        }
+
+        /* Estilo para las etiquetas h3 */
+        h3 {
+            color: rgb(255, 255, 255);
+        }
+
+        /* Estilo para el textarea */
+        textarea {
+            width: 90%;
+            height: 100px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+
+        .inputs-inline {
+            display: flex;
+            gap: 15px; /* espacio entre los bloques */
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap; /* evita desbordes en pantallas pequeñas */
+        }
+
+        .inputs-inline div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .inputs-inline input {
+            padding: 6px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .input-tipo {
+            width: 80px;
+        }
+
+        .input-id {
+            width: 300px; 
+        }
+
+        .input-version {
+            width: 50px;
+        }
+    </style>
+</head>
+<body>
+    <form action="/guardar_opi" method="POST">
+        {% csrf_token %}
+
+        <div class="inline-labels">
+            <label for="OPI"><h3>OPI</h3></label>
+            <div class="inputs-inline">
+                <div>
+                    <h3>Tipo</h3>
+                    <input type="text" id="tipo" name="tipo" class="input-tipo">
+                </div>
+                <div>
+                    <h3>ID</h3>
+                    <input type="text" id="ID" name="ID" class="input-id">
+                </div>
+                <div>
+                    <h3>Versión</h3>
+                    <input type="text" id="version" name="version" class="input-version">
+                </div>
+            </div>
+        </div>
+
+        <div class="inline-labels">
+            <label for="INFO"><h3>DESCRIPCION</h3></label>
+            <textarea id="INFO" name="INFO" maxlength="800"style="padding: 6px; width: 90%;"></textarea><br><br>
+        </div>
+
+        <div class="inline-labels">
+            <label for="SECCION1"><h3>PUESTOS RELACIONADOS</h3></label>
+            
+            <!-- Si puesto_form ya tiene un campo con name="SECCION1", este lo usará -->
+            {{ puesto_form.as_p }}
+            <!-- Mostrar los resultados del puesto aquí, si los hay -->
+            {% if puestos_info %}
+                <h3>Puesto seleccionado: {{ puestos_info.0.puesto }}</h3>
+                <ul>
+                    {% for operario in puestos_info %}
+                        <li>{{ operario.nombre }} - {{ operario.puesto }}: {{ operario.valor }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+        
+        <br>
+        <input class="button-pop" type="submit" style="font-size: 18px; padding: 10px 30px;" value="Guardar"><br><br>
+    </form>
+    <script>
+        // Efecto pop al hacer click en cualquier botón con .button-pop
+        document.querySelectorAll('.button-pop').forEach(button => {
+            button.addEventListener('click', function () {
+                button.classList.add('pop-effect');
+                setTimeout(() => {
+                    button.classList.remove('pop-effect');
+                }, 200); // Debe coincidir con la duración de la transición
+            });
+        });
+    </script>
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        // Si quieres para pruebas rápidas, usa:
+            // const tiempoInactividad = 10 * 1000; // 10 seg
+
+        function cerrarSesionPorInactividad() {
+            // Si quieres hacer logout por POST:
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        // Reiniciar temporizador en cualquier interacción
+        document.addEventListener("mousemove", reiniciarTemporizador);
+        document.addEventListener("keydown", reiniciarTemporizador);
+        document.addEventListener("click", reiniciarTemporizador);
+
+        reiniciarTemporizador(); // iniciar al cargar la página
+    </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>FORMACIONES SRCSE</title>
+        <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+        <style>
+            body {
+                text-align: center;
+                background-color: #f5f7fa;
+                background-image: url("{% static 'fondo_esquina.png' %}");
+                background-size: auto;
+                background-repeat: no-repeat;
+                background-position: center center;
+                background-attachment: fixed;
+                transition: background-size 1s ease, background-position 0.8s ease; /* transición como el otro */
+                background-size: 800px 240px; /* Tamaño inicial */
+                background-position: center center;
+            }
+            .button-pop {
+                transition: transform 0.2s ease;
+            }
+
+            .button-pop.pop-effect {
+                transform: scale(1.15);
+            }
+            body.animate-background {
+                background-size: 200px 60px;
+                background-position: 10px 10px;
+            }
+
+            form, h1 {
+                background-color: rgb(0, 132, 203);
+                box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+                padding: 20px;
+                border-radius: 10px;
+                display: inline-block;
+            }
+
+            label, h1 {
+                font-size: 25px;
+                color: rgb(255, 255, 255);
+            }
+
+            .message, h2 {
+                color: rgba(63, 72, 204, 0.829);
+            }
+
+            .button-ripple {
+            position: relative;
+            overflow: hidden;
+            }
+
+            .button-ripple::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            transform: scale(0);
+            background: rgba(255, 255, 255, 0.6);
+            animation: ripple 0.6s linear;
+            }
+
+            @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+            }
+        </style>
+    </head>
+
+    <body>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </body>
+
+</html>
