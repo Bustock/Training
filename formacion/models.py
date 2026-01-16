@@ -51,6 +51,12 @@ class polivalencia(models.Model):
     REFURBISHING = models.IntegerField(default=0)
     REPROCESSING_CARGADORES = models.IntegerField(default=0)
     PACKING_RPM_REFURBISHING = models.IntegerField(default=0)
+    
+    # Campos de auditoría
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='polivalencia_creadas')
+    creado_en = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='polivalencia_modificadas')
+    modificado_en = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     def __str__(self):
         return self.OPERARIO
@@ -67,6 +73,12 @@ class nuevas_opis(models.Model):
     SECCION6 = models.CharField(max_length=25)
     SECCION7 = models.CharField(max_length=25)
     ok_supervisor = models.JSONField(default=dict)
+    
+    # Campos de auditoría
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='nuevas_opis_creadas')
+    creado_en = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='nuevas_opis_modificadas')
+    modificado_en = models.DateTimeField(auto_now=True, null=True, blank=True)
 
 
 class opis(models.Model):
@@ -81,6 +93,12 @@ class opis(models.Model):
     SECCION7 = models.CharField(max_length=25)
     formados = models.JSONField(default=dict)
     firmas = models.JSONField(default=dict)
+    
+    # Campos de auditoría
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='opis_creadas')
+    creado_en = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='opis_modificadas')
+    modificado_en = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     def __str__(self):
         return self.OPI
@@ -92,6 +110,12 @@ class completa(models.Model):
     PRACTICA = models.BooleanField(default=False)
     PRODUCTO = models.BooleanField(default=False)
     firmas = models.JSONField(default=dict)
+    
+    # Campos de auditoría
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='formaciones_completas_creadas')
+    creado_en = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='formaciones_completas_modificadas')
+    modificado_en = models.DateTimeField(auto_now=True, null=True, blank=True)
 
 class auditoria(models.Model):
     DIA = models.DateField()
@@ -103,6 +127,12 @@ class auditoria(models.Model):
     OPERARIO = models.CharField(max_length=100)
     NO_CONFORMIDAD = models.BooleanField(default=False)
     OBSERVACIONES = models.TextField(blank=True, null=True)
+    
+    # Campos de auditoría
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='auditorias_creadas')
+    creado_en = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='auditorias_modificadas')
+    modificado_en = models.DateTimeField(auto_now=True, null=True, blank=True)
 
 
 class Notificacion(models.Model):

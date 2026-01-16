@@ -8,6 +8,7 @@ from .forms import *
 from copy import copy
 from django.utils import timezone
 from django.db.models import Q
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.messages import get_messages
@@ -154,11 +155,10 @@ def notificacion_leida(request, notificacion_id):
 @groups_required('admin', 'formacion')
 @login_required
 def actualizar_matriz(request):
-    # Ruta del archivo Excel
-    excel_file = r'C:\sonova\formaciones\TPL-708 [4] RCSE Matriz de Polivalencia Operarios producción.xlsx'
-
-    # Ruta de la base de datos SQLite
-    db_path = r'C:\sonova\formaciones\formaciones.sqlite3'
+    # Usar rutas relativas al proyecto
+    base_dir = settings.BASE_DIR
+    excel_file = os.path.join(base_dir, 'TPL-708 [4] RCSE Matriz de Polivalencia Operarios producción.xlsx')
+    db_path = os.path.join(base_dir, 'formaciones.sqlite3')
 
     # Mapeo de columnas entre el Excel y los campos de la base de datos
     column_mapping = {
@@ -212,46 +212,56 @@ def actualizar_matriz(request):
         'Packing RPM/Refurbishing': 'PACKING_RPM_REFURBISHING'
     }
 
-    # Leer el archivo Excel desde la hoja "Operarios producción", comenzando desde la fila 3
-    df = pd.read_excel(excel_file, sheet_name="Operarios producción", skiprows=2)
-    df.fillna(0, inplace=True)
-    df.rename(columns=column_mapping, inplace=True)
+    # Verificar que el archivo Excel existe
+    if not os.path.exists(excel_file):
+        messages.add_message(request, messages.ERROR, f'No se encuentra el archivo Excel en: {excel_file}')
+        return redirect(inicio)
+
+    try:
+        # Leer el archivo Excel desde la hoja "Operarios producción", comenzando desde la fila 3
+        df = pd.read_excel(excel_file, sheet_name="Operarios producción", skiprows=2)
+        df.fillna(0, inplace=True)
+        df.rename(columns=column_mapping, inplace=True)
+    except Exception as e:
+        messages.add_message(request, messages.ERROR, f'Error al leer el archivo Excel: {str(e)}')
+        return redirect(inicio)
 
     # Conexión a la base de datos SQLite
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+    except Exception as e:
+        messages.add_message(request, messages.ERROR, f'Error al conectar con la base de datos: {str(e)}')
+        return redirect(inicio)
 
-    cursor.execute("DELETE FROM formacion_polivalencia")
-    conn.commit()
-
+    # CORREGIDO: No borrar primero, hacer el proceso correctamente
+    # Primero, leer todos los operarios del Excel
     for _, row in df.iterrows():
         operario = row['OPERARIO']
         if not operario or pd.isna(operario):
-            break
+            continue  # Usar continue en lugar de break para seguir con los demás
 
         cursor.execute("SELECT * FROM formacion_polivalencia WHERE OPERARIO = ?", (operario,))
         existing_record = cursor.fetchone()
 
         if existing_record:
-            db_values = existing_record[1:]
+            # Si existe, actualizar
             excel_values = tuple(row[col] for col in column_mapping.values() if col != 'OPERARIO')
-
-            if db_values != excel_values:
-                update_query = f"""
-                    UPDATE formacion_polivalencia
-                    SET {', '.join([f"{col} = ?" for col in column_mapping.values() if col != 'OPERARIO'])}
-                    WHERE OPERARIO = ?
-                """
-                cursor.execute(update_query, excel_values + (operario,))
-                conn.commit()
+            update_query = f"""
+                UPDATE formacion_polivalencia
+                SET {', '.join([f"{col} = ?" for col in column_mapping.values() if col != 'OPERARIO'])}
+                WHERE OPERARIO = ?
+            """
+            cursor.execute(update_query, excel_values + (operario,))
         else:
+            # Si no existe, insertar
             insert_query = f"""
                 INSERT INTO formacion_polivalencia ({', '.join(column_mapping.values())})
                 VALUES ({', '.join(['?'] * len(column_mapping))})
             """
             cursor.execute(insert_query, tuple(row[col] for col in column_mapping.values()))
-            conn.commit()
-
+    
+    conn.commit()
     print('Matriz de polivalencia actualizada')
 
     # Segunda parte: insertar nuevas combinaciones con valor 4
@@ -366,10 +376,11 @@ def formacion_opis(request):
         if operario_seleccionado:
             operario_obj = polivalencia.objects.filter(OPERARIO=operario_seleccionado).first()
             if operario_obj:
+                campos_excluidos = ['id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en']
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in ['id', 'OPERARIO'] and getattr(operario_obj, field.name) not in [0, 4]
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 4]
                 ]
 
                 operarios_info = {
@@ -463,7 +474,7 @@ def guardar_opi(request):
         OPI = f"{TIPO}-{ID} [{VERSION}]"
 
     datos = nuevas_opis(OPI=OPI, INFO=INFO, SECCION1=SECCION1, SECCION2=SECCION2, SECCION3=SECCION3, SECCION4=SECCION4, SECCION5=SECCION5, SECCION6=SECCION6, SECCION7=SECCION7)
-    
+    datos.creado_por = request.user
     datos.save()
     
     messages.add_message(request, messages.INFO, 'OPI guardada correctamente, Esperando la validación del supervisor.')
@@ -529,6 +540,7 @@ def aceptar_opi(request):
     ok_dict = opi_obj.ok_supervisor or {}
     ok_dict[clave_puesto] = 'ok'
     opi_obj.ok_supervisor = ok_dict
+    opi_obj.modificado_por = request.user
     opi_obj.save()
 
     # Obtener secciones asociadas y gestionadas
@@ -573,11 +585,12 @@ def aceptar_opi(request):
             else:
                 campos_seccion[f'SECCION{idx}'] = ''
 
-        opis.objects.create(
+        opi_nueva = opis.objects.create(
             OPI=opi_obj.OPI,
             INFO=opi_obj.INFO,
             formados={},
             firmas={},
+            creado_por=request.user,
             **campos_seccion
         )
         opi_obj.delete()
@@ -614,6 +627,7 @@ def rechazar_opi(request):
     ok_dict = opi_obj.ok_supervisor or {}
     ok_dict[clave_puesto] = 'ko'
     opi_obj.ok_supervisor = ok_dict
+    opi_obj.modificado_por = request.user
     opi_obj.save()
 
     # Obtener secciones asociadas y gestionadas
@@ -658,11 +672,12 @@ def rechazar_opi(request):
             else:
                 campos_seccion[f'SECCION{idx}'] = ''
 
-        opis.objects.create(
+        opi_nueva = opis.objects.create(
             OPI=opi_obj.OPI,
             INFO=opi_obj.INFO,
             formados={},
             firmas={},
+            creado_por=request.user,
             **campos_seccion
         )
         opi_obj.delete()
@@ -704,6 +719,7 @@ def guardar_fecha(request):
 
         opi.formados[operario] = fecha  # Agregar/modificar operario:fecha
 
+        opi.modificado_por = request.user
         opi.save()  # Guardar cambios en la BBDD
 
         messages.add_message(request, messages.INFO, f'{operario} completó: {opi_a_mod}')
@@ -837,6 +853,7 @@ def subir_firma(request):
 
             opi.firmas[operario] = output_path  # Agregar/modificar nombre:ruta_imagen
 
+            opi.modificado_por = request.user
             opi.save()  # Guardar cambios en la BBDD
 
             messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_a_mod}. Hasta la próxima!')
@@ -888,11 +905,13 @@ def formacion_completa(request):
         if operario_seleccionado:
             operario_obj = polivalencia.objects.filter(OPERARIO=operario_seleccionado).first()
             if operario_obj:
+                campos_excluidos = ['id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en']
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in ['id', 'OPERARIO'] and getattr(operario_obj, field.name) == 4
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) == 4
                 ]
+                
 
                 operarios_info = {
                     'nombre': operario_obj.OPERARIO,
@@ -1116,6 +1135,7 @@ def completar_teoria(request):
             teoria.TEORIA = True
             teoria.firmas["fecha_teoria"] = fecha_actual
             teoria.firmas["porcentaje_teoria"] = f'{porcentaje_correctas:.0f}%'
+            teoria.modificado_por = request.user
             teoria.save()
             # Generar el PDF
             pdf_path = os.path.join(
@@ -1284,6 +1304,7 @@ def completar_practica(request):
             practica.PRACTICA = True
             practica.firmas["fecha_practica"] = fecha_actual
             practica.firmas["porcentaje_practica"] = f'{porcentaje_si:.0f}%'
+            practica.modificado_por = request.user
             practica.save()
 
             # Generar PDF
@@ -1442,6 +1463,7 @@ def completar_producto(request):
             producto.PRODUCTO = True
             producto.firmas["fecha_producto"] = fecha_actual
             producto.firmas["porcentaje_producto"] = f'{porcentaje_no:.0f}%'
+            producto.modificado_por = request.user
             producto.save()
 
             # Generar PDF
@@ -1571,16 +1593,19 @@ def guardar_firma(request):
                     firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
                     firma.firmas[tipo_firma] = ruta_completa
                     firma.firmas['dni'] = dni
+                    firma.modificado_por = request.user
                     firma.save()
                 elif tipo_firma == 'firma_responsable':
                     responsable = request.POST.get('responsable').strip().upper()
                     firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
                     firma.firmas[tipo_firma] = ruta_completa
                     firma.firmas['responsable'] = responsable
+                    firma.modificado_por = request.user
                     firma.save()
                 else:
                     firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
                     firma.firmas[tipo_firma] = ruta_completa
+                    firma.modificado_por = request.user
                     firma.save()
 
                 messages.success(request, "Firma guardada correctamente.")
@@ -1783,6 +1808,7 @@ def generar_pdf(request):
     
     pdf = completa.objects.get(OPERARIO=operario_nombre, PUESTO=puesto_seleccionado)
     pdf.firmas['PDF'] = pdf_final_path
+    pdf.creado_por = request.user
     pdf.save()
     
     messages.add_message(request, messages.INFO, "Documento de formación generado correctamente.")
@@ -1940,7 +1966,9 @@ def agregar_tecnico(request):
         if nombre:
             # Verificar si ya existe
             if not polivalencia.objects.filter(OPERARIO=nombre).exists():
-                polivalencia.objects.create(OPERARIO=nombre)
+                nuevo_operario = polivalencia.objects.create(OPERARIO=nombre)
+                nuevo_operario.creado_por = request.user
+                nuevo_operario.save()
                 messages.success(request, f"Técnico '{nombre}' añadido correctamente.")
                 return redirect('editar_matriz')
         messages.success(request, f"'{nombre}' ya existe.")        
@@ -1976,9 +2004,12 @@ def editar_tecnico(request):
             tecnico = polivalencia.objects.filter(OPERARIO=operario).first()
             if tecnico and hasattr(tecnico, puesto):
                 setattr(tecnico, puesto, int(nuevo_valor))
+                tecnico.modificado_por = request.user
                 tecnico.save()
                 if nuevo_valor == '4':
-                    completa.objects.create(OPERARIO=operario, PUESTO=puesto, PRACTICA=False, PRODUCTO=False, TEORIA=False, firmas={})
+                    nueva_formacion = completa.objects.create(OPERARIO=operario, PUESTO=puesto, PRACTICA=False, PRODUCTO=False, TEORIA=False, firmas={})
+                    nueva_formacion.creado_por = request.user
+                    nueva_formacion.save()
                 messages.success(request, f"Nivel de '{operario}' en '{puesto_traducido}' actualizado correctamente.")
                 base_url = reverse('editar_matriz')  # nombre de la vista
                 query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
@@ -2065,6 +2096,7 @@ def auditoria_diaria(request):
     global puestos_dict
     operario_form = OperarioForm(request.GET)
     operarios_info = []
+    auditorias_recientes = []
     puesto_form = PuestoForm(request.GET)
 
     if operario_form.is_valid():
@@ -2072,20 +2104,35 @@ def auditoria_diaria(request):
         if operario_seleccionado:
             operario_obj = polivalencia.objects.filter(OPERARIO=operario_seleccionado).first()
             if operario_obj:
+                campos_excluidos = ['id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en']
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in ['id', 'OPERARIO'] and getattr(operario_obj, field.name) not in [0, 4]
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 4]
                 ]
 
                 operarios_info = {
                     'nombre': operario_obj.OPERARIO,
                     'campos_validos': campos_validos
                 }
+                
+                # Buscar auditorías de los últimos 3 meses
+                fecha_limite = timezone.now().date() - timedelta(days=90)
+                auditorias_recientes = auditoria.objects.filter(
+                    OPERARIO=operario_seleccionado,
+                    DIA__gte=fecha_limite
+                ).order_by('-DIA')
+                
+                # Traducir el proceso al nombre legible
+                for aud in auditorias_recientes:
+                    aud.proceso_traducido = puestos_dict.get(aud.PROCESO, aud.PROCESO)
 
-                return render(request, 'auditoria.html', {'mensaje': messages.get_messages(request),
-                                                            'operario_form': operario_form,
-                                                            'operarios_info': operarios_info,})
+                return render(request, 'auditoria.html', {
+                    'mensaje': messages.get_messages(request),
+                    'operario_form': operario_form,
+                    'operarios_info': operarios_info,
+                    'auditorias_recientes': auditorias_recientes
+                })
     
     return render(request, 'auditoria.html', {'mensaje': messages.get_messages(request),
                                                             'operario_form': operario_form,})
@@ -2109,7 +2156,7 @@ def registrar_auditoria(request):
 
 
         if sap and num_serie and familia and proceso and auditor_nombre and operario:
-            auditoria.objects.create(
+            nueva_auditoria = auditoria.objects.create(
                 DIA=dia,
                 SAP=sap,
                 NUM_SERIE=num_serie,
@@ -2120,6 +2167,8 @@ def registrar_auditoria(request):
                 NO_CONFORMIDAD=no_conformidad,
                 OBSERVACIONES=observaciones
             )
+            nueva_auditoria.creado_por = request.user
+            nueva_auditoria.save()
             messages.success(request, "Auditoría registrada correctamente.")
         else:
             messages.error(request, "Por favor, complete todos los campos obligatorios.")

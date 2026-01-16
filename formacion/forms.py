@@ -84,9 +84,10 @@ class OperarioComp(forms.Form):
         super().__init__(*args, **kwargs)
 
         operarios_filtrados = []
+        campos_excluidos = ('OPERARIO', 'id', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en')
         for operario in polivalencia.objects.all():
             for field in operario._meta.fields:
-                if field.name not in ('OPERARIO', 'id'):
+                if field.name not in campos_excluidos:
                     valor = getattr(operario, field.name)
                     if valor == 4:
                         operarios_filtrados.append((operario.OPERARIO, operario.OPERARIO))
@@ -118,8 +119,9 @@ class PuestoComp(forms.Form):
         super().__init__(*args, **kwargs)
 
         campos_validos = []
+        campos_excluidos = ('id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en')
         for field in polivalencia._meta.fields:
-            if field.name not in ('id', 'OPERARIO'):
+            if field.name not in campos_excluidos:
                 if polivalencia.objects.filter(**{field.name: 4}).exists():
                     if field.name in puestos_dict:
                         campos_validos.append((field.name, puestos_dict[field.name]))
@@ -161,16 +163,12 @@ class CompletaForm(forms.Form):
 
         # Si se proporcionan operario y puesto, buscar los datos en el modelo
         if self.operario and self.puesto:
-            try:
-                registro = completa.objects.get(PUESTO=self.puesto, OPERARIO=self.operario)
+            # Usar filter().first() para manejar duplicados
+            registro = completa.objects.filter(PUESTO=self.puesto, OPERARIO=self.operario).first()
+            if registro:
                 self.initial['TEORIA'] = registro.TEORIA
                 self.initial['PRACTICA'] = registro.PRACTICA
                 self.initial['PRODUCTO'] = registro.PRODUCTO
-            except completa.DoesNotExist:
-                # Si no se encuentran datos, los campos permanecerán vacíos
-                self.initial['TEORIA'] = None
-                self.initial['PRACTICA'] = None
-                self.initial['PRODUCTO'] = None
 
 class PolivalenciaForm(forms.ModelForm):
     class Meta:
