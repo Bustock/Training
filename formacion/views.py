@@ -2046,7 +2046,12 @@ def descargar_polivalencia(request):
     if 'id' in df.columns:
         df = df.drop(columns=['id'])
 
-    # 4) Convertir celdas con 0 a vacío y mantener solo 1-4
+    # 4) Convertir datetimes con timezone a naive datetimes (sin timezone)
+    for col in df.columns:
+        if pd.api.types.is_datetime64tz_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    # 5) Convertir celdas con 0 a vacío y mantener solo 1-4
     def limpiar_valor(x):
         if isinstance(x, (int, float)):
             if x in [1, 2, 3, 4]:
@@ -2057,11 +2062,11 @@ def descargar_polivalencia(request):
 
     df = df.applymap(limpiar_valor)
 
-    # 5) Generar nombre de archivo con fecha
+    # 6) Generar nombre de archivo con fecha
     fecha_hoy = datetime.now().strftime("%Y-%m-%d")
     filename = f"TPL-708_Matriz_de_Polivalencia_{fecha_hoy}.xlsx"
 
-    # 6) Guardar en memoria
+    # 7) Guardar en memoria
     from io import BytesIO
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
