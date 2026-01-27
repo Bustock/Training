@@ -68,6 +68,40 @@
         .message, h2 {
             color: rgba(63, 72, 204, 0.829);
         }
+        .alert-card {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            border-left: 6px solid #3b82f6;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+            padding: 12px 16px;
+            margin: 12px auto;
+            border-radius: 12px;
+            max-width: 900px;
+            text-align: center;
+        }
+        .alert-card.success {
+            border-left-color: #16a34a;
+            color: #166534;
+        }
+        .alert-card.error {
+            border-left-color: #dc2626;
+            color: #991b1b;
+        }
+        .alert-card.warning {
+            border-left-color: #f59e0b;
+            color: #92400e;
+        }
+        .alert-card.info {
+            border-left-color: #0ea5e9;
+            color: #0c4a6e;
+        }
+        .alert-card p,
+        .alert-card h2,
+        .alert-card h3 {
+            margin: 0;
+            color: inherit;
+        }
         .button-aceptar, .button-rechazar {
             padding: 5px 10px;
             border-radius: 5px;
@@ -103,12 +137,11 @@
     <h1>NUEVAS OPIS</h1>
 
     {% if messages %}
-        <ul class="messages">
+        <div class="messages">
         {% for message in messages %}
-            <h2><p{% if message.tags %} class="{{ message.tags }}"{% endif %}>
-                {{ message }}</p></h2>
+            <div class="alert-card {{ message.tags }}">{{ message }}</div>
         {% endfor %}
-        </ul>
+        </div>
     {% endif %}
 
     <table>
@@ -121,7 +154,9 @@
         <tbody>
             {% if not opis_lista %}
             <tr>
-                <td colspan="2" class="message">No hay OPI pendientes.</td>
+                <td colspan="2">
+                    <div class="alert-card info">No hay OPI pendientes.</div>
+                </td>
             </tr>
             {% endif %}
             {% for opi in opis_lista %}

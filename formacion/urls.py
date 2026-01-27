@@ -1,4 +1,5 @@
 from django.urls import path
+from django.contrib.auth.views import PasswordChangeDoneView
 from .views import *
 urlpatterns = [
     path('', inicio, name='inicio'),
@@ -32,6 +33,8 @@ urlpatterns = [
     path('descargar_polivalencia/', descargar_polivalencia, name='descargar_polivalencia'),
     path('notificaciones', notificaciones, name='notificaciones'),
     path('notificacion_leida/<int:notificacion_id>/', notificacion_leida, name='notificacion_leida'),
+    path('password_change/', CambioPasswordView.as_view(), name='password_change'),
+    path('password_change/done/', PasswordChangeDoneView.as_view(template_name='registration/password_change_done.html'), name='password_change_done'),
     path('grafica', grafica, name='grafica'),
     path('auditoria_diaria', auditoria_diaria, name='auditoria_diaria'),
     path('registrar_auditoria', registrar_auditoria, name='registrar_auditoria'),

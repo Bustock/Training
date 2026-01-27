@@ -71,6 +71,30 @@
             font-size: 14px;
         }
 
+        .alert-card {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            border-left: 6px solid #3b82f6;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+            padding: 10px 14px;
+            margin: 10px 0;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .alert-card.error {
+            border-left-color: #dc2626;
+            color: #991b1b;
+        }
+
+        .alert-card p,
+        .alert-card h2,
+        .alert-card h3 {
+            margin: 0;
+            color: inherit;
+        }
+
         /* Estilo para modal de bienvenida */
         #introModal {
             position: fixed;
@@ -134,7 +158,7 @@
                     <strong>{{ pregunta.indice }}. {{ pregunta.texto }}</strong>
 
                     {% if pregunta.error %}
-                        <div class="error">⚠ Esta pregunta tiene múltiples respuestas correctas marcadas.</div>
+                        <div class="alert-card error">⚠ Esta pregunta tiene múltiples respuestas correctas marcadas.</div>
                     {% endif %}
 
                     {% for opcion in pregunta.opciones %}

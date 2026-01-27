@@ -13,11 +13,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.messages import get_messages
 from django.contrib.auth import logout, login
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect, JsonResponse
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
 from urllib.parse import urlencode
 from docx import Document
@@ -89,9 +90,13 @@ def registro(request):
         form = RegistroForm(request.POST)
         if form.is_valid():
             user = form.save()
+            PasswordChangeStatus.objects.update_or_create(
+                user=user,
+                defaults={"last_password_change": timezone.now()},
+            )
             grupo_tecnicos, creado = Group.objects.get_or_create(name="tecnicos")
             user.groups.add(grupo_tecnicos)
-            login(request, user)  # inicia sesión automáticamente después de registrarse
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')  # inicia sesión automáticamente después de registrarse
             return redirect("login")  # cámbialo a la vista principal de tu app
     else:
         form = RegistroForm()
@@ -121,6 +126,19 @@ def groups_required(*group_names):
     def in_groups(u):
         return u.is_authenticated and bool(u.groups.filter(name__in=group_names))
     return user_passes_test(in_groups)
+
+
+class CambioPasswordView(PasswordChangeView):
+    template_name = "registration/password_change_form.html"
+    success_url = reverse_lazy("password_change_done")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        PasswordChangeStatus.objects.update_or_create(
+            user=self.request.user,
+            defaults={"last_password_change": timezone.now()},
+        )
+        return response
 
 @groups_required('admin', 'formacion', 'supervisores')
 @login_required

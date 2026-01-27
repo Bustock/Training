@@ -13,11 +13,10 @@
   <a href="{% url 'login' %}">¿Ya tienes cuenta? Inicia sesión</a>
   
   {% if messages %}
-    <ul class="messages">
+    <div class="messages">
     {% for message in messages %}
-        <h2><p{% if message.tags %} class="{{ message.tags }}"{% endif %}>
-            {{ message }}</p></h2>
+        <div class="alert-card {{ message.tags }}">{{ message }}</div>
     {% endfor %}
-    </ul>
+    </div>
   {% endif %}
 {% endblock %}

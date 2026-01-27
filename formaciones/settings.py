@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'formacion',
+    'axes',
+    'formacion.apps.FormacionConfig',
 ]
 
 MIDDLEWARE = [
@@ -48,6 +50,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',
+    'formacion.middleware.PasswordExpiryMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -80,7 +84,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'formaciones.sqlite3',
-        #'NAME':  r'\\es01sw31\TRAZABILIDAD\BBDD\formaciones.sqlite3',
+        #'NAME':  r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3',
     }
 }
 
@@ -141,6 +145,19 @@ LOGOUT_REDIRECT_URL = '/logout_message/'
 SESSION_COOKIE_AGE = 7200  # 2 horas en segundos
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Opcional: cerrar sesión al cerrar navegador
+
+# Protección contra intentos de login fallidos (django-axes)
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 3
+AXES_COOLOFF_TIME = timedelta(minutes=2)
+AXES_LOCKOUT_PARAMETERS = ["username"]   #, "ip_address"
+AXES_RESET_ON_SUCCESS = True
+
+# Caducidad de contraseñas (días)
+PASSWORD_EXPIRATION_DAYS = 90
 
 # Cookies
 CSRF_COOKIE_NAME = "csrftoken_proyecto_formaciones"

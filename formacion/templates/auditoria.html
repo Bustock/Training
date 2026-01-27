@@ -40,6 +40,40 @@
         .message {
             color: rgba(63, 72, 204, 0.829);
         }
+        .alert-card {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            border-left: 6px solid #3b82f6;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+            padding: 12px 16px;
+            margin: 12px auto;
+            border-radius: 12px;
+            max-width: 900px;
+            text-align: center;
+        }
+        .alert-card.success {
+            border-left-color: #16a34a;
+            color: #166534;
+        }
+        .alert-card.error {
+            border-left-color: #dc2626;
+            color: #991b1b;
+        }
+        .alert-card.warning {
+            border-left-color: #f59e0b;
+            color: #92400e;
+        }
+        .alert-card.info {
+            border-left-color: #0ea5e9;
+            color: #0c4a6e;
+        }
+        .alert-card p,
+        .alert-card h2,
+        .alert-card h3 {
+            margin: 0;
+            color: inherit;
+        }
         .boton {
             padding: 10px 20px;
             background-color: rgb(4, 0, 255);
@@ -108,12 +142,10 @@
         <h1>AUDITORIA</h1><br>
     </div>
 
-    <div style="text-align: center;">
-        <h2>
-            {% for message in mensaje %}
-                <p class="message">{{ message }}</p>
-            {% endfor %}
-        </h2>
+    <div class="messages" style="text-align: center;">
+        {% for message in mensaje %}
+            <div class="alert-card info">{{ message }}</div>
+        {% endfor %}
     </div>
 
     <div style="display: flex; justify-content: center; margin-top: 20px;">

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import Group, User
+from django.utils import timezone
 
 # Create your models here.
 class polivalencia(models.Model):
@@ -146,3 +147,11 @@ class Notificacion(models.Model):
     def __str__(self):
         destino = self.grupo.name if self.grupo else (self.usuario.username if self.usuario else "General")
         return f"Para {destino}: {self.mensaje[:30]}"
+
+
+class PasswordChangeStatus(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='password_status')
+    last_password_change = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.last_password_change}"
