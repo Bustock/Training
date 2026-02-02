@@ -31,6 +31,10 @@ from PyPDF2 import PdfMerger
 import shutil
 
 
+# BASE_URL = r"C:\sonova\formaciones"
+BASE_URL = r"\\es01sw31\APP Training Tool"
+
+
 opi_a_mod = []
 puesto_info = []
 
@@ -176,7 +180,7 @@ def actualizar_matriz(request):
     # Usar rutas relativas al proyecto
     base_dir = settings.BASE_DIR
     excel_file = os.path.join(base_dir, 'TPL-708 [4] RCSE Matriz de Polivalencia Operarios producción.xlsx')
-    db_path = os.path.join(base_dir, 'formaciones.sqlite3')
+    db_path = r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3'
 
     # Mapeo de columnas entre el Excel y los campos de la base de datos
     column_mapping = {
@@ -252,12 +256,32 @@ def actualizar_matriz(request):
         messages.add_message(request, messages.ERROR, f'Error al conectar con la base de datos: {str(e)}')
         return redirect(inicio)
 
-    # CORREGIDO: No borrar primero, hacer el proceso correctamente
-    # Primero, leer todos los operarios del Excel
+    # Sincronizar operarios: eliminar los que ya no estén en el Excel
+    operarios_excel = set()
+    for _, row in df.iterrows():
+        operario = row.get('OPERARIO')
+        if operario and not pd.isna(operario):
+            operarios_excel.add(str(operario).strip())
+
+    if not operarios_excel:
+        messages.add_message(request, messages.ERROR, 'No se encontraron operarios válidos en el Excel.')
+        conn.close()
+        return redirect(inicio)
+
+    placeholders = ','.join(['?'] * len(operarios_excel))
+    cursor.execute(
+        f"DELETE FROM formacion_polivalencia WHERE OPERARIO NOT IN ({placeholders})",
+        tuple(operarios_excel)
+    )
+
+    # Leer todos los operarios del Excel y actualizar/insertar
     for _, row in df.iterrows():
         operario = row['OPERARIO']
         if not operario or pd.isna(operario):
             continue  # Usar continue en lugar de break para seguir con los demás
+
+        operario = str(operario).strip()
+        row['OPERARIO'] = operario
 
         cursor.execute("SELECT * FROM formacion_polivalencia WHERE OPERARIO = ?", (operario,))
         existing_record = cursor.fetchone()
@@ -806,7 +830,8 @@ def subir_firma(request):
             img_stream = BytesIO(img_bytes)  # Mantener la imagen en memoria
 
             # Rellenar la plantilla .docx
-            template_path = r'C:\sonova\formaciones\media\plantillas\plantilla_opis.docx'
+            # template_path = r"C:\sonova\formaciones\media\plantillas\plantilla_opis.docx"
+            template_path = os.path.join(BASE_URL, 'media', 'plantillas', 'plantilla_opis.docx')
             doc = Document(template_path)
 
             # Función para reemplazar texto en párrafos y manejar imágenes
@@ -857,7 +882,8 @@ def subir_firma(request):
                             process_paragraph(paragraph, replacements, img_stream)
 
             # Guardar el documento modificado
-            output_directory = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', str(opi_a_mod))
+            # output_directory = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', str(opi_a_mod))
+            output_directory = os.path.join(BASE_URL, 'media', 'firmas_opis', str(opi_a_mod))
             os.makedirs(output_directory, exist_ok=True)
             output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_a_mod}.docx")
             doc.save(output_path) # Guardar el archivo .docx
@@ -887,7 +913,8 @@ def subir_firma(request):
 @login_required
 def ver_pdf_opi(request, opi, nombre):
     #Vista para servir el PDF como descarga
-    pdf_path = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
+    # pdf_path = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
+    pdf_path = os.path.join(BASE_URL, 'media', 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
     
     if not os.path.exists(pdf_path):
         raise Http404("El archivo no existe")
@@ -1034,7 +1061,8 @@ def formacion_completa(request):
 
 class PDFConLogo(FPDF):
     def header(self):
-        logo_path = r"C:\sonova\formaciones\media\logo.png"
+        # logo_path = r"C:\sonova\formaciones\media\logo.png"
+        logo_path = os.path.join(BASE_URL, 'media', 'logo.png')
         if os.path.exists(logo_path):
             # Puedes ajustar x, y y tamaño a tu gusto
             self.image(logo_path, x=160, y=10, w=35)
@@ -1042,7 +1070,8 @@ class PDFConLogo(FPDF):
 
 
 def cargar_teoria(puesto_seleccionado):
-    base_path = r"C:\sonova\formaciones\media\plantillas\teoria"
+    # base_path = r"C:\sonova\formaciones\media\plantillas\teoria"
+    base_path = os.path.join(BASE_URL, 'media', 'plantillas', 'teoria')
     file_path = os.path.join(base_path, f"{puesto_seleccionado}.txt")
 
     # Verificar que el archivo existe antes de abrirlo
@@ -1156,8 +1185,16 @@ def completar_teoria(request):
             teoria.modificado_por = request.user
             teoria.save()
             # Generar el PDF
+            # pdf_path = os.path.join(
+            #     r"C:\sonova\formaciones\media\form_completa\teoria_ok",
+            #     operario_nombre,
+            #     f"{puesto_seleccionado}.pdf"
+            # )
             pdf_path = os.path.join(
-                r"C:\sonova\formaciones\media\form_completa\teoria_ok",
+                BASE_URL,
+                'media',
+                'form_completa',
+                'teoria_ok',
                 operario_nombre,
                 f"{puesto_seleccionado}.pdf"
             )
@@ -1236,7 +1273,8 @@ def completar_teoria(request):
     return HttpResponse("Método no permitido", status=405)
 
 def cargar_practica(puesto_seleccionado):
-    base_path = r"C:\sonova\formaciones\media\plantillas\practica"
+    # base_path = r"C:\sonova\formaciones\media\plantillas\practica"
+    base_path = os.path.join(BASE_URL, 'media', 'plantillas', 'practica')
     file_path = os.path.join(base_path, f"{puesto_seleccionado}.txt")
 
     if not os.path.exists(file_path):
@@ -1326,8 +1364,16 @@ def completar_practica(request):
             practica.save()
 
             # Generar PDF
+            # pdf_path = os.path.join(
+            #     r"C:\sonova\formaciones\media\form_completa\practica_ok",
+            #     operario_nombre,
+            #     f"{puesto_seleccionado}.pdf"
+            # )
             pdf_path = os.path.join(
-                r"C:\sonova\formaciones\media\form_completa\practica_ok",
+                BASE_URL,
+                'media',
+                'form_completa',
+                'practica_ok',
                 operario_nombre,
                 f"{puesto_seleccionado}.pdf"
             )
@@ -1485,8 +1531,16 @@ def completar_producto(request):
             producto.save()
 
             # Generar PDF
+            # pdf_path = os.path.join(
+            #     r"C:\sonova\formaciones\media\form_completa\producto_ok",
+            #     operario_nombre,
+            #     f"{puesto_seleccionado}.pdf"
+            # )
             pdf_path = os.path.join(
-                r"C:\sonova\formaciones\media\form_completa\producto_ok",
+                BASE_URL,
+                'media',
+                'form_completa',
+                'producto_ok',
                 operario_nombre,
                 f"{puesto_seleccionado}.pdf"
             )
@@ -1591,7 +1645,8 @@ def guardar_firma(request):
         if imagen_data:
             try:
                 # Ruta de guardado
-                path_firmas = rf"C:\sonova\formaciones\media\form_completa\firmas\{operario}\{puesto}"
+                # path_firmas = rf"C:\sonova\formaciones\media\form_completa\firmas\{operario}\{puesto}"
+                path_firmas = os.path.join(BASE_URL, 'media', 'form_completa', 'firmas', operario, puesto)
 
                 # Crear carpeta si no existe
                 os.makedirs(path_firmas, exist_ok=True)
@@ -1677,11 +1732,16 @@ def generar_pdf(request):
 
     # Definir las plantillas .docx para cada tipo de PDF
     plantillas = {
-        'teoria': r'C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 1.docx',
-        'practica': r'C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 2.docx',
-        'producto': r'C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 3.docx',
-        'final': r'C:\sonova\formaciones\media\plantillas\validaciones\Validación final.docx',
-        'acta': r'C:\sonova\formaciones\media\plantillas\acta_formacion.docx'
+        # 'teoria': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 1.docx",
+        'teoria': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 1.docx'),
+        # 'practica': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 2.docx",
+        'practica': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 2.docx'),
+        # 'producto': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 3.docx",
+        'producto': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 3.docx'),
+        # 'final': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación final.docx",
+        'final': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación final.docx'),
+        # 'acta': r"C:\sonova\formaciones\media\plantillas\acta_formacion.docx"
+        'acta': os.path.join(BASE_URL, 'media', 'plantillas', 'acta_formacion.docx')
     }
 
     # Datos a insertar en cada PDF
@@ -1773,7 +1833,8 @@ def generar_pdf(request):
 
 
         # Guardar el documento modificado en PDF
-        output_directory = os.path.join(settings.MEDIA_ROOT, 'documentos', operario_nombre, puesto_traducido)
+        # output_directory = os.path.join(settings.MEDIA_ROOT, 'documentos', operario_nombre, puesto_traducido)
+        output_directory = os.path.join(BASE_URL, 'media', 'documentos', operario_nombre, puesto_traducido)
         os.makedirs(output_directory, exist_ok=True)
 
         output_path = os.path.join(output_directory, f"{operario_nombre}_{tipo}_formacion.docx")
@@ -1797,11 +1858,14 @@ def generar_pdf(request):
             os.path.join(output_directory, f"{operario_nombre}_acta_formacion.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_final_formacion.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_teoria_formacion.pdf"),
-            rf"C:\sonova\formaciones\media\form_completa\teoria_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
+            # rf"C:\sonova\formaciones\media\form_completa\teoria_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
+            os.path.join(BASE_URL, 'media', 'form_completa', 'teoria_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_practica_formacion.pdf"),
-            rf"C:\sonova\formaciones\media\form_completa\practica_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
+            # rf"C:\sonova\formaciones\media\form_completa\practica_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
+            os.path.join(BASE_URL, 'media', 'form_completa', 'practica_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_producto_formacion.pdf"),
-            rf"C:\sonova\formaciones\media\form_completa\producto_ok\{operario_nombre}\{puesto_seleccionado}.pdf",            
+            # rf"C:\sonova\formaciones\media\form_completa\producto_ok\{operario_nombre}\{puesto_seleccionado}.pdf",            
+            os.path.join(BASE_URL, 'media', 'form_completa', 'producto_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
         ]
 
         # Añadir los PDFs en orden
@@ -1822,7 +1886,8 @@ def generar_pdf(request):
         if os.path.exists(path):
             os.remove(path)
 
-    shutil.rmtree(rf"C:\sonova\formaciones\media\form_completa\firmas\{operario_nombre}\{puesto_seleccionado}")
+    # shutil.rmtree(rf"C:\sonova\formaciones\media\form_completa\firmas\{operario_nombre}\{puesto_seleccionado}")
+    shutil.rmtree(os.path.join(BASE_URL, 'media', 'form_completa', 'firmas', operario_nombre, puesto_seleccionado))
     
     pdf = completa.objects.get(OPERARIO=operario_nombre, PUESTO=puesto_seleccionado)
     pdf.firmas['PDF'] = pdf_final_path
@@ -1843,7 +1908,8 @@ def ver_pdf_form(request, nombre, puesto):
     global puestos_dict
     puesto_traducido = puestos_dict[puesto]
     #Vista para servir el PDF como descarga
-    pdf_path = os.path.join(settings.MEDIA_ROOT, 'documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
+    # pdf_path = os.path.join(settings.MEDIA_ROOT, 'documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
+    pdf_path = os.path.join(BASE_URL, 'media', 'documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
     if not os.path.exists(pdf_path):
         raise Http404("El archivo no existe")
 
