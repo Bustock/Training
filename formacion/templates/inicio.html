@@ -143,10 +143,12 @@
     <div class="content">
         <h1>FORMACIONES SONOVA RCSE</h1><br>
         <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+            <!--
             <form class="button-pop no-animacion" action="/actualizar_matriz" method="POST">
                 {% csrf_token %}
                 <input type="submit" value="Actualizar Matriz de Polivalencia">
             </form>
+            -->
             <form action="/editar_matriz" method="POST">
                 {% csrf_token %}
                 <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">

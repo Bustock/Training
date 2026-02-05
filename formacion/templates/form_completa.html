@@ -297,7 +297,7 @@
                                         <a class="boton boton-deshabilitado"><f>Alumno</f></a><br><br>
                                         <span style="color: rgb(0, 255, 0);">&#10004;</span>
                                     {% else %}
-                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_alumno&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Alumno</f></a><br><br>
+                                        <button type="button" class="boton" onclick="copiarURLFirmaAlumno()"><f>Alumno</f></button><br><br>
                                         <span style="color: red; font-size: 20px;">&#10060;</span>
                                     {% endif %}
                                 </div>
@@ -431,6 +431,22 @@ function copiarURLAlClipboard() {
     navigator.clipboard.writeText(fullUrl)
         .then(() => {
             alert("Enlace al examen copiado al portapapeles:\n" + fullUrl);
+        })
+        .catch(err => {
+            console.error("Error al copiar:", err);
+            alert("No se pudo copiar la URL");
+        });
+}
+
+function copiarURLFirmaAlumno() {
+    const baseUrl = window.location.origin + "{% url 'firmar_formacion' %}";
+    const operario = encodeURIComponent("{{ operarios_info.nombre }}");
+    const puesto = encodeURIComponent("{{ puesto_seleccionado }}");
+    const fullUrl = `${baseUrl}?tipo_firma=firma_alumno&operario=${operario}&puesto=${puesto}`;
+
+    navigator.clipboard.writeText(fullUrl)
+        .then(() => {
+            alert("Enlace de firma del alumno copiado al portapapeles:\n" + fullUrl);
         })
         .catch(err => {
             console.error("Error al copiar:", err);

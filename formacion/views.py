@@ -223,7 +223,7 @@ def actualizar_matriz(request):
         'PACKING NEW': 'PACKING_NEW',
         'PACKING SERVICE': 'PACKING_SERVICE',
         'RPM-Desmontaje y limpieza': 'RPM_DESMONTAJE_LIMPIEZA',
-        'RPM-Decontaminación': 'RPM_DECONTAMINACION',
+        'RPM-Descontaminación': 'RPM_DECONTAMINACION',
         'RPM-IRS1 Identificación e Inicialización': 'RPM_IRS1_IDENTIFICACION',
         'RPM-LPS2 Bluetooth': 'RPM_LPS2_BLUETOOTH',
         'RPM-Visual y SNW2': 'RPM_VISUAL_SNW2',
@@ -256,52 +256,39 @@ def actualizar_matriz(request):
         messages.add_message(request, messages.ERROR, f'Error al conectar con la base de datos: {str(e)}')
         return redirect(inicio)
 
-    # Sincronizar operarios: eliminar los que ya no estén en el Excel
-    operarios_excel = set()
+    # Borrar toda la tabla y recargarla desde el Excel
+    cursor.execute("DELETE FROM formacion_polivalencia")
+
+    operarios_validos = False
+    operarios_vistos = set()
+    insert_query = f"""
+        INSERT INTO formacion_polivalencia ({', '.join(column_mapping.values())})
+        VALUES ({', '.join(['?'] * len(column_mapping))})
+    """
+
     for _, row in df.iterrows():
         operario = row.get('OPERARIO')
-        if operario and not pd.isna(operario):
-            operarios_excel.add(str(operario).strip())
-
-    if not operarios_excel:
-        messages.add_message(request, messages.ERROR, 'No se encontraron operarios válidos en el Excel.')
-        conn.close()
-        return redirect(inicio)
-
-    placeholders = ','.join(['?'] * len(operarios_excel))
-    cursor.execute(
-        f"DELETE FROM formacion_polivalencia WHERE OPERARIO NOT IN ({placeholders})",
-        tuple(operarios_excel)
-    )
-
-    # Leer todos los operarios del Excel y actualizar/insertar
-    for _, row in df.iterrows():
-        operario = row['OPERARIO']
         if not operario or pd.isna(operario):
-            continue  # Usar continue en lugar de break para seguir con los demás
+            continue
 
         operario = str(operario).strip()
+        if operario.upper() == 'LEYENDA':
+            print("Fila 'LEYENDA' detectada. Fin de operarios.")
+            break
+        if operario in operarios_vistos:
+            print(f"Operario duplicado encontrado en el Excel: {operario}")
+            continue
+        operarios_vistos.add(operario)
         row['OPERARIO'] = operario
+        operarios_validos = True
 
-        cursor.execute("SELECT * FROM formacion_polivalencia WHERE OPERARIO = ?", (operario,))
-        existing_record = cursor.fetchone()
+        cursor.execute(insert_query, tuple(row[col] for col in column_mapping.values()))
 
-        if existing_record:
-            # Si existe, actualizar
-            excel_values = tuple(row[col] for col in column_mapping.values() if col != 'OPERARIO')
-            update_query = f"""
-                UPDATE formacion_polivalencia
-                SET {', '.join([f"{col} = ?" for col in column_mapping.values() if col != 'OPERARIO'])}
-                WHERE OPERARIO = ?
-            """
-            cursor.execute(update_query, excel_values + (operario,))
-        else:
-            # Si no existe, insertar
-            insert_query = f"""
-                INSERT INTO formacion_polivalencia ({', '.join(column_mapping.values())})
-                VALUES ({', '.join(['?'] * len(column_mapping))})
-            """
-            cursor.execute(insert_query, tuple(row[col] for col in column_mapping.values()))
+    if not operarios_validos:
+        messages.add_message(request, messages.ERROR, 'No se encontraron operarios válidos en el Excel.')
+        conn.rollback()
+        conn.close()
+        return redirect(inicio)
     
     conn.commit()
     print('Matriz de polivalencia actualizada')
@@ -1633,7 +1620,7 @@ def firmar_formacion(request):
             'tipo_firma': tipo_firma
         })
     
-@groups_required('admin', 'formacion')
+@groups_required('admin', 'formacion', 'tecnicos')
 @login_required
 def guardar_firma(request):
     if request.method == 'POST':
@@ -1689,6 +1676,9 @@ def guardar_firma(request):
         base_url = reverse('formacion_completa')  # nombre de la vista
         query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
         url = f"{base_url}?{query_string}"
+
+        if request.user.groups.filter(name='tecnicos').exists():
+            return redirect('logout_message')
 
     return HttpResponseRedirect(url)  
 

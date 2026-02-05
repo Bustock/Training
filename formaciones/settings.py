@@ -83,8 +83,8 @@ WSGI_APPLICATION = 'formaciones.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'formaciones.sqlite3',
-        'NAME':  r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3',
+        'NAME': BASE_DIR / 'formaciones.sqlite3',
+        #'NAME':  r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3',
     }
 }
 
@@ -153,7 +153,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 AXES_FAILURE_LIMIT = 3
 AXES_COOLOFF_TIME = timedelta(minutes=2)
-AXES_LOCKOUT_PARAMETERS = ["username"]   #, "ip_address"
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_RESET_ON_SUCCESS = True
 
 # Caducidad de contraseñas (días)
