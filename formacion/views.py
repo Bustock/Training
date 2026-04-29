@@ -2,11 +2,12 @@ import pandas as pd
 #import xlwings as xw
 #from openpyxl import Workbook, load_workbook
 #from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
-import sqlite3, json, base64, os, re, pythoncom, comtypes.client
+import json, base64, os, re
 from .models import *
 from .forms import *
 from copy import copy
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q
 from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
@@ -32,7 +33,34 @@ import shutil
 
 
 # BASE_URL = r"C:\sonova\formaciones"
-BASE_URL = r"\\es01sw31\APP Training Tool"
+#BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
+BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")
+
+
+def shared_path(*parts):
+    return os.path.join(BASE_URL, *parts)
+
+
+def shared_media_path(*parts):
+    return shared_path('media', *parts)
+
+
+def shared_plantillas_path(*parts):
+    return shared_media_path('plantillas', *parts)
+
+
+def json_error_detallado(error, fase, puesto_seleccionado=None, status=500):
+    ruta = None
+    if puesto_seleccionado:
+        ruta = shared_plantillas_path(fase, f"{puesto_seleccionado}.txt")
+
+    return JsonResponse({
+        'ok': False,
+        'fase': fase,
+        'puesto': puesto_seleccionado,
+        'ruta_esperada': ruta,
+        'detalle_error': str(error),
+    }, status=status)
 
 
 opi_a_mod = []
@@ -154,8 +182,10 @@ def inicio(request):
             models.Q(grupo__in=request.user.groups.all()) |
             models.Q(usuario=request.user)
         ).exclude(leido_por=request.user)
+        puede_plantillas = request.user.groups.filter(name__in=['admin', 'formacion']).exists()
         return render(request, 'inicio.html', {
             'notificaciones': notificaciones,
+            'puede_plantillas': puede_plantillas,
             'mensaje': messages.get_messages(request)})
 
 @login_required    
@@ -180,7 +210,6 @@ def actualizar_matriz(request):
     # Usar rutas relativas al proyecto
     base_dir = settings.BASE_DIR
     excel_file = os.path.join(base_dir, 'TPL-708 [4] RCSE Matriz de Polivalencia Operarios producción.xlsx')
-    db_path = r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3'
 
     # Mapeo de columnas entre el Excel y los campos de la base de datos
     column_mapping = {
@@ -248,23 +277,17 @@ def actualizar_matriz(request):
         messages.add_message(request, messages.ERROR, f'Error al leer el archivo Excel: {str(e)}')
         return redirect(inicio)
 
-    # Conexión a la base de datos SQLite
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-    except Exception as e:
-        messages.add_message(request, messages.ERROR, f'Error al conectar con la base de datos: {str(e)}')
-        return redirect(inicio)
-
-    # Borrar toda la tabla y recargarla desde el Excel
-    cursor.execute("DELETE FROM formacion_polivalencia")
+    def normalizar_nivel(valor):
+        if pd.isna(valor):
+            return 0
+        try:
+            return int(valor)
+        except (TypeError, ValueError):
+            return 0
 
     operarios_validos = False
     operarios_vistos = set()
-    insert_query = f"""
-        INSERT INTO formacion_polivalencia ({', '.join(column_mapping.values())})
-        VALUES ({', '.join(['?'] * len(column_mapping))})
-    """
+    polivalencias_a_crear = []
 
     for _, row in df.iterrows():
         operario = row.get('OPERARIO')
@@ -278,71 +301,72 @@ def actualizar_matriz(request):
         if operario in operarios_vistos:
             print(f"Operario duplicado encontrado en el Excel: {operario}")
             continue
+
         operarios_vistos.add(operario)
-        row['OPERARIO'] = operario
         operarios_validos = True
 
-        cursor.execute(insert_query, tuple(row[col] for col in column_mapping.values()))
+        datos_polivalencia = {'OPERARIO': operario}
+        for campo in column_mapping.values():
+            if campo == 'OPERARIO':
+                continue
+            datos_polivalencia[campo] = normalizar_nivel(row.get(campo, 0))
+
+        polivalencias_a_crear.append(polivalencia(**datos_polivalencia))
 
     if not operarios_validos:
         messages.add_message(request, messages.ERROR, 'No se encontraron operarios válidos en el Excel.')
-        conn.rollback()
-        conn.close()
         return redirect(inicio)
-    
-    conn.commit()
-    print('Matriz de polivalencia actualizada')
 
-    # Segunda parte: insertar nuevas combinaciones con valor 4
-    df_polivalencia = pd.read_sql_query("SELECT * FROM formacion_polivalencia", conn)
+    campos_puesto = [campo for campo in column_mapping.values() if campo != 'OPERARIO']
 
-    nuevas_filas = []
-    for _, row in df_polivalencia.iterrows():
-        operario = row['OPERARIO']
-        for puesto in column_mapping.values():
-            if puesto != 'OPERARIO' and row.get(puesto) == 4:
-                cursor.execute("""
-                    SELECT 1 FROM formacion_completa
-                    WHERE OPERARIO = ? AND PUESTO = ?
-                """, (operario, puesto))
-                existe = cursor.fetchone()
+    with transaction.atomic():
+        polivalencia.objects.all().delete()
+        polivalencia.objects.bulk_create(polivalencias_a_crear, batch_size=1000)
 
-                if not existe:
-                    nuevas_filas.append((puesto, operario, 0, 0, 0, '{}'))
+        matriz_actual = list(polivalencia.objects.all())
+        mapa_matriz = {
+            tecnico.OPERARIO: {campo: getattr(tecnico, campo, 0) for campo in campos_puesto}
+            for tecnico in matriz_actual
+        }
 
-    cursor.executemany("""
-        INSERT INTO formacion_completa (PUESTO, OPERARIO, TEORIA, PRACTICA, PRODUCTO, firmas)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, nuevas_filas)
-    conn.commit()
+        existentes_completa = set(completa.objects.values_list('OPERARIO', 'PUESTO'))
+        nuevas_combinaciones = []
+        for tecnico in matriz_actual:
+            for puesto in campos_puesto:
+                if getattr(tecnico, puesto, 0) == 4 and (tecnico.OPERARIO, puesto) not in existentes_completa:
+                    nuevas_combinaciones.append(
+                        completa(
+                            PUESTO=puesto,
+                            OPERARIO=tecnico.OPERARIO,
+                            TEORIA=False,
+                            PRACTICA=False,
+                            PRODUCTO=False,
+                            firmas={}
+                        )
+                    )
+                    existentes_completa.add((tecnico.OPERARIO, puesto))
 
-    # Verificación y eliminación de combinaciones inválidas
-    df_completa = pd.read_sql_query("SELECT * FROM formacion_completa", conn)
+        if nuevas_combinaciones:
+            completa.objects.bulk_create(nuevas_combinaciones, batch_size=1000)
 
-    for _, row in df_completa.iterrows():
-        operario = row['OPERARIO']
-        puesto = row['PUESTO']
-        teoria = row['TEORIA']
-        practica = row['PRACTICA']
-        producto = row['PRODUCTO']
+        ids_a_eliminar = []
+        advertencias = []
+        for registro in completa.objects.all():
+            valor_actual = mapa_matriz.get(registro.OPERARIO, {}).get(registro.PUESTO)
+            if valor_actual in [1, 2, 3]:
+                if registro.TEORIA and registro.PRACTICA and registro.PRODUCTO:
+                    ids_a_eliminar.append(registro.id)
+                else:
+                    advertencias.append(
+                        f"⚠️ El operario {registro.OPERARIO} no ha completado la formación en {registro.PUESTO}, pero ha cambiado su valor en la matriz de polivalencia.⚠️"
+                    )
 
-        if puesto in df_polivalencia.columns:
-            valor_matriz = df_polivalencia.loc[df_polivalencia['OPERARIO'] == operario, puesto]
+        if ids_a_eliminar:
+            completa.objects.filter(id__in=ids_a_eliminar).delete()
 
-            if not valor_matriz.empty:
-                valor_actual = valor_matriz.values[0]
+    for advertencia in advertencias:
+        messages.add_message(request, messages.INFO, advertencia)
 
-                if valor_actual in [1, 2, 3]:
-                    if teoria == 1 and practica == 1 and producto == 1:
-                        cursor.execute("""
-                            DELETE FROM formacion_completa
-                            WHERE OPERARIO = ? AND PUESTO = ?
-                        """, (operario, puesto))
-                        conn.commit()
-                    else:
-                        messages.add_message(request, messages.INFO, f"⚠️ El operario {operario} no ha completado la formación en {puesto}, pero ha cambiado su valor en la matriz de polivalencia.⚠️")
-
-    conn.close()
     messages.add_message(request, messages.INFO, 'Matriz de polivalencia actualizada.')
     return redirect(inicio)
 
@@ -591,19 +615,19 @@ def aceptar_opi(request):
         if secciones_aceptadas == secciones_asociadas:
             messages.success(request, f'{opi_nombre} aceptada para puesto {puesto_traducido}.')
             Notificacion.objects.create(
-            usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+            grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'✅{opi_nombre} aceptada para puesto {puesto_traducido}✅'
             )
             Notificacion.objects.create(
-                usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+                grupo=Group.objects.get(name='formacion'),  # grupo
                 creado_por=request.user,
                 mensaje=f'✅{opi_nombre} ACEPTADA por todos✅'
             )
         else:
             messages.success(request, f'{opi_nombre} aceptada para puesto {puesto_traducido}.')
             Notificacion.objects.create(
-                usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+                grupo=Group.objects.get(name='formacion'),  # grupo
                 creado_por=request.user,
                 mensaje=f'✅{opi_nombre} ACEPTADA parcialmente, ❌ Rechazada en secciones: {", ".join(secciones_rechazadas_traducidas)}'
             )
@@ -626,7 +650,7 @@ def aceptar_opi(request):
     else:
         messages.success(request, f'{opi_nombre} aceptada para puesto {puesto_traducido}.')
         Notificacion.objects.create(
-            usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+            grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'✅{opi_nombre} aceptada para puesto {puesto_traducido}✅'
         )
@@ -669,7 +693,7 @@ def rechazar_opi(request):
     if todas_gestionadas:
         messages.success(request, f'{opi_nombre} rechazada para puesto {puesto_traducido}.')
         Notificacion.objects.create(
-            usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+            grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'❌{opi_nombre} RECHAZADA para puesto {puesto_traducido}❌'
         )
@@ -683,14 +707,14 @@ def rechazar_opi(request):
         if not secciones_aceptadas:
             opi_obj.delete()
             Notificacion.objects.create(
-            usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+            grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'❌{opi_nombre} RECHAZADA por TODOS, eliminada del sistema❌'
             )
             return redirect('listar_opis')
         else:
             Notificacion.objects.create(
-                usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+                grupo=Group.objects.get(name='formacion'),  # grupo
                 creado_por=request.user,
                 mensaje=f'✅{opi_nombre} ACEPTADA parcialmente, ❌ Rechazada en secciones: {", ".join(secciones_rechazadas)}'
             )
@@ -713,7 +737,7 @@ def rechazar_opi(request):
     else:
         messages.success(request, f'{opi_nombre} rechazada para puesto {puesto_traducido}.')
         Notificacion.objects.create(
-            usuario=User.objects.get(username='325mcaballero'),  # usuario específico
+            grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'❌{opi_nombre} RECHAZADA para puesto {puesto_traducido}❌'
         )
@@ -764,25 +788,28 @@ def introducir_firma(request):
     return render(request, 'introducir_firma.html', {'opi': opi, 'operario': operario})
 
 def convertir_docx_a_pdf(docx_path, pdf_path):
-    # 🔹 Asegurar que COM esté inicializado
-    pythoncom.CoInitialize()
+    import subprocess
 
     try:
-        # 🔹 Iniciar la aplicación de Word
-        word = comtypes.client.CreateObject('Word.Application')
-        word.Visible = False  # Ejecutar en segundo plano
+        output_dir = os.path.dirname(pdf_path)
+        libreoffice_path = getattr(settings, 'LIBREOFFICE_PATH', 'soffice')
 
-        # 🔹 Abrir el documento .docx
-        doc = word.Documents.Open(docx_path)
+        result = subprocess.run(
+            [libreoffice_path, '--headless', '--convert-to', 'pdf', '--outdir', output_dir, docx_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60
+        )
 
-        # 🔹 Guardar como PDF (número 17 = formato PDF)
-        doc.SaveAs(pdf_path, FileFormat=17)
-        doc.Close()  # Cerrar documento
-        word.Quit()  # Cerrar Word
+        # LibreOffice genera el PDF con el mismo nombre base que el .docx
+        generated_pdf = os.path.join(output_dir, os.path.splitext(os.path.basename(docx_path))[0] + '.pdf')
+        if generated_pdf != pdf_path and os.path.exists(generated_pdf):
+            os.rename(generated_pdf, pdf_path)
+
+        if result.returncode != 0:
+            print(f"Error al convertir a PDF: {result.stderr.decode()}")
     except Exception as e:
         print(f"Error al convertir a PDF: {e}")
-    finally:
-        pythoncom.CoUninitialize()  # 🔹 Liberar COM
 
 @groups_required('admin', 'formacion', 'tecnicos')
 @login_required
@@ -795,7 +822,7 @@ def subir_firma(request):
         operario = request.POST.get("operario")
         imagen_base64 = request.POST.get("imagen")
         dni = request.POST.get("dni").strip().upper() 
-        responsable = request.POST.get("responsable").strip().upper() 
+        formador = (request.POST.get("formador") or "").strip().upper()
 
         # Buscar la OPI a modificar
         opi = get_object_or_404(opis, id=opi_id)
@@ -818,7 +845,7 @@ def subir_firma(request):
 
             # Rellenar la plantilla .docx
             # template_path = r"C:\sonova\formaciones\media\plantillas\plantilla_opis.docx"
-            template_path = os.path.join(BASE_URL, 'media', 'plantillas', 'plantilla_opis.docx')
+            template_path = shared_plantillas_path('plantilla_opis.docx')
             doc = Document(template_path)
 
             # Función para reemplazar texto en párrafos y manejar imágenes
@@ -854,7 +881,7 @@ def subir_firma(request):
                 '{{info_formacion}}': info_formacion,
                 '{{operario}}': operario,
                 '{{dni}}': dni,
-                '{{responsable}}': responsable
+                '{{formador}}': formador
             }
 
             # Aplicar reemplazo en párrafos
@@ -870,7 +897,7 @@ def subir_firma(request):
 
             # Guardar el documento modificado
             # output_directory = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', str(opi_a_mod))
-            output_directory = os.path.join(BASE_URL, 'media', 'firmas_opis', str(opi_a_mod))
+            output_directory = shared_media_path('firmas_opis', str(opi_a_mod))
             os.makedirs(output_directory, exist_ok=True)
             output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_a_mod}.docx")
             doc.save(output_path) # Guardar el archivo .docx
@@ -901,7 +928,7 @@ def subir_firma(request):
 def ver_pdf_opi(request, opi, nombre):
     #Vista para servir el PDF como descarga
     # pdf_path = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
-    pdf_path = os.path.join(BASE_URL, 'media', 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
+    pdf_path = shared_media_path('firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
     
     if not os.path.exists(pdf_path):
         raise Http404("El archivo no existe")
@@ -1003,7 +1030,7 @@ def formacion_completa(request):
     estado_firmas = {
         'firma_alumno': False,
         'firma_formador': False,
-        'firma_responsable': False,
+        'firma_supervisor': False,
         'firma_dpto': False,
         'PDF': False
     }
@@ -1018,7 +1045,7 @@ def formacion_completa(request):
             for clave in estado_firmas.keys():
                 estado_firmas[clave] = clave in firma_entry.firmas
     
-    if estado_firmas['firma_alumno'] and estado_firmas['firma_formador'] and estado_firmas['firma_responsable'] and estado_firmas['firma_dpto'] and not estado_firmas['PDF']:
+    if estado_firmas['firma_alumno'] and estado_firmas['firma_formador'] and estado_firmas['firma_supervisor'] and estado_firmas['firma_dpto'] and not estado_firmas['PDF']:
         storage = get_messages(request)
         for _ in storage:
             pass
@@ -1049,7 +1076,7 @@ def formacion_completa(request):
 class PDFConLogo(FPDF):
     def header(self):
         # logo_path = r"C:\sonova\formaciones\media\logo.png"
-        logo_path = os.path.join(BASE_URL, 'media', 'logo.png')
+        logo_path = shared_media_path('logo.png')
         if os.path.exists(logo_path):
             # Puedes ajustar x, y y tamaño a tu gusto
             self.image(logo_path, x=160, y=10, w=35)
@@ -1058,7 +1085,7 @@ class PDFConLogo(FPDF):
 
 def cargar_teoria(puesto_seleccionado):
     # base_path = r"C:\sonova\formaciones\media\plantillas\teoria"
-    base_path = os.path.join(BASE_URL, 'media', 'plantillas', 'teoria')
+    base_path = shared_plantillas_path('teoria')
     file_path = os.path.join(base_path, f"{puesto_seleccionado}.txt")
 
     # Verificar que el archivo existe antes de abrirlo
@@ -1120,7 +1147,7 @@ def completar_teoria(request):
         # Cargar preguntas
         preguntas, error = cargar_teoria(puesto_seleccionado)
         if error:
-            return render(request, 'error.html', {'mensaje': error})
+            return json_error_detallado(error, 'teoria', puesto_seleccionado)
 
         contexto = {
             'titulo': f"Examen teórico {puesto_traducido}",
@@ -1142,7 +1169,7 @@ def completar_teoria(request):
         # Cargar preguntas
         preguntas, error = cargar_teoria(puesto_seleccionado)
         if error:
-            return render(request, 'error.html', {'mensaje': error})
+            return json_error_detallado(error, 'teoria', puesto_seleccionado)
 
         # Procesar las respuestas del usuario
         respuestas_usuario = {}
@@ -1177,9 +1204,7 @@ def completar_teoria(request):
             #     operario_nombre,
             #     f"{puesto_seleccionado}.pdf"
             # )
-            pdf_path = os.path.join(
-                BASE_URL,
-                'media',
+            pdf_path = shared_media_path(
                 'form_completa',
                 'teoria_ok',
                 operario_nombre,
@@ -1261,7 +1286,7 @@ def completar_teoria(request):
 
 def cargar_practica(puesto_seleccionado):
     # base_path = r"C:\sonova\formaciones\media\plantillas\practica"
-    base_path = os.path.join(BASE_URL, 'media', 'plantillas', 'practica')
+    base_path = shared_plantillas_path('practica')
     file_path = os.path.join(base_path, f"{puesto_seleccionado}.txt")
 
     if not os.path.exists(file_path):
@@ -1307,7 +1332,7 @@ def completar_practica(request):
 
         preguntas, error = cargar_practica(puesto_seleccionado)
         if error:
-            return render(request, 'error.html', {'mensaje': error})
+            return json_error_detallado(error, 'practica', puesto_seleccionado)
 
         contexto = {
             'titulo': f"Evaluación Práctica de {puesto_traducido}",
@@ -1327,7 +1352,7 @@ def completar_practica(request):
 
         preguntas, error = cargar_practica(puesto_seleccionado)
         if error:
-            return render(request, 'error.html', {'mensaje': error})
+            return json_error_detallado(error, 'practica', puesto_seleccionado)
 
         respuestas_usuario = {}
         si_contadas = 0
@@ -1351,14 +1376,7 @@ def completar_practica(request):
             practica.save()
 
             # Generar PDF
-            # pdf_path = os.path.join(
-            #     r"C:\sonova\formaciones\media\form_completa\practica_ok",
-            #     operario_nombre,
-            #     f"{puesto_seleccionado}.pdf"
-            # )
-            pdf_path = os.path.join(
-                BASE_URL,
-                'media',
+            pdf_path = shared_media_path(
                 'form_completa',
                 'practica_ok',
                 operario_nombre,
@@ -1518,14 +1536,7 @@ def completar_producto(request):
             producto.save()
 
             # Generar PDF
-            # pdf_path = os.path.join(
-            #     r"C:\sonova\formaciones\media\form_completa\producto_ok",
-            #     operario_nombre,
-            #     f"{puesto_seleccionado}.pdf"
-            # )
-            pdf_path = os.path.join(
-                BASE_URL,
-                'media',
+            pdf_path = shared_media_path(
                 'form_completa',
                 'producto_ok',
                 operario_nombre,
@@ -1633,7 +1644,7 @@ def guardar_firma(request):
             try:
                 # Ruta de guardado
                 # path_firmas = rf"C:\sonova\formaciones\media\form_completa\firmas\{operario}\{puesto}"
-                path_firmas = os.path.join(BASE_URL, 'media', 'form_completa', 'firmas', operario, puesto)
+                path_firmas = shared_media_path('form_completa', 'firmas', operario, puesto)
 
                 # Crear carpeta si no existe
                 os.makedirs(path_firmas, exist_ok=True)
@@ -1648,25 +1659,24 @@ def guardar_firma(request):
                 with open(ruta_completa, 'wb') as f:
                     f.write(base64.b64decode(imgstr))
 
+                firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
+                firma.firmas[tipo_firma] = ruta_completa
+
                 if tipo_firma == 'firma_alumno':
-                    dni = request.POST.get('dni').strip().upper()            
-                    firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
-                    firma.firmas[tipo_firma] = ruta_completa
+                    dni = (request.POST.get('dni') or '').strip().upper()
                     firma.firmas['dni'] = dni
-                    firma.modificado_por = request.user
-                    firma.save()
-                elif tipo_firma == 'firma_responsable':
-                    responsable = request.POST.get('responsable').strip().upper()
-                    firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
-                    firma.firmas[tipo_firma] = ruta_completa
-                    firma.firmas['responsable'] = responsable
-                    firma.modificado_por = request.user
-                    firma.save()
-                else:
-                    firma = completa.objects.get(OPERARIO=operario, PUESTO=puesto)
-                    firma.firmas[tipo_firma] = ruta_completa
-                    firma.modificado_por = request.user
-                    firma.save()
+                elif tipo_firma == 'firma_supervisor':
+                    supervisor = (request.POST.get('supervisor') or '').strip().upper()
+                    firma.firmas['supervisor'] = supervisor
+                elif tipo_firma == 'firma_formador':
+                    formador = (request.POST.get('formador') or '').strip().upper()
+                    firma.firmas['formador'] = formador
+                elif tipo_firma == 'firma_dpto':
+                    dpto = (request.POST.get('dpto') or '').strip().upper()
+                    firma.firmas['dpto'] = dpto
+
+                firma.modificado_por = request.user
+                firma.save()
 
                 messages.success(request, "Firma guardada correctamente.")
             except Exception as e:
@@ -1690,7 +1700,7 @@ def generar_pdf(request):
     global puestos_dict
     global puesto_info
     
-    excluir_firmas = ['firma_alumno', 'firma_formador', 'firma_responsable', 'firma_dpto']
+    excluir_firmas = ['firma_alumno', 'firma_formador', 'firma_supervisor', 'firma_dpto']
     def reemplazar_en_parrafo(paragraph, replacements, excluir_claves=excluir_firmas):
         if excluir_claves is None:
             excluir_claves = []
@@ -1723,15 +1733,15 @@ def generar_pdf(request):
     # Definir las plantillas .docx para cada tipo de PDF
     plantillas = {
         # 'teoria': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 1.docx",
-        'teoria': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 1.docx'),
+        'teoria': shared_plantillas_path('validaciones', 'Validación Initial Training fase 1.docx'),
         # 'practica': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 2.docx",
-        'practica': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 2.docx'),
+        'practica': shared_plantillas_path('validaciones', 'Validación Initial Training fase 2.docx'),
         # 'producto': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación Initial Training fase 3.docx",
-        'producto': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación Initial Training fase 3.docx'),
+        'producto': shared_plantillas_path('validaciones', 'Validación Initial Training fase 3.docx'),
         # 'final': r"C:\sonova\formaciones\media\plantillas\validaciones\Validación final.docx",
-        'final': os.path.join(BASE_URL, 'media', 'plantillas', 'validaciones', 'Validación final.docx'),
+        'final': shared_plantillas_path('validaciones', 'Validación final.docx'),
         # 'acta': r"C:\sonova\formaciones\media\plantillas\acta_formacion.docx"
-        'acta': os.path.join(BASE_URL, 'media', 'plantillas', 'acta_formacion.docx')
+        'acta': shared_plantillas_path('acta_formacion.docx')
     }
 
     # Datos a insertar en cada PDF
@@ -1752,7 +1762,9 @@ def generar_pdf(request):
         'acta': {
             'opis': puesto_info,
             'dni': firmas.get('dni'),
-            'responsable': firmas.get('responsable'),
+            'formador': firmas.get('formador'),
+            'supervisor': firmas.get('supervisor'),
+            'dpto': firmas.get('dpto'),
         },
     }
 
@@ -1776,9 +1788,11 @@ def generar_pdf(request):
             'fecha_producto': firmas.get('fecha_producto'),
             'porcentaje_producto': firmas.get('porcentaje_producto'),
             'firma_alumno': firmas.get('firma_alumno'),
+            'formador': firmas.get('formador'),
             'firma_formador': firmas.get('firma_formador'),
-            'respopnsable': firmas.get('responsable'),
-            'firma_responsable': firmas.get('firma_responsable'),
+            'supervisor': firmas.get('supervisor'),
+            'firma_supervisor': firmas.get('firma_supervisor'),
+            'dpto': firmas.get('dpto'),
             'firma_dpto': firmas.get('firma_dpto'),
         }
         # Agregar los datos específicos (fecha y porcentaje) para cada tipo de PDF
@@ -1809,7 +1823,7 @@ def generar_pdf(request):
                     run = paragraph.add_run()
                     run.add_picture(image_path, width=Inches(1.7))
 
-        for key in ['firma_alumno', 'firma_formador', 'firma_responsable', 'firma_dpto']:
+        for key in ['firma_alumno', 'firma_formador', 'firma_supervisor', 'firma_dpto']:
             firma_path = firmas.get(key)
             if firma_path:
                 # Insertar en párrafos normales
@@ -1824,7 +1838,7 @@ def generar_pdf(request):
 
         # Guardar el documento modificado en PDF
         # output_directory = os.path.join(settings.MEDIA_ROOT, 'documentos', operario_nombre, puesto_traducido)
-        output_directory = os.path.join(BASE_URL, 'media', 'documentos', operario_nombre, puesto_traducido)
+        output_directory = shared_media_path('documentos', operario_nombre, puesto_traducido)
         os.makedirs(output_directory, exist_ok=True)
 
         output_path = os.path.join(output_directory, f"{operario_nombre}_{tipo}_formacion.docx")
@@ -1849,13 +1863,13 @@ def generar_pdf(request):
             os.path.join(output_directory, f"{operario_nombre}_final_formacion.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_teoria_formacion.pdf"),
             # rf"C:\sonova\formaciones\media\form_completa\teoria_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
-            os.path.join(BASE_URL, 'media', 'form_completa', 'teoria_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
+            shared_media_path('form_completa', 'teoria_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_practica_formacion.pdf"),
             # rf"C:\sonova\formaciones\media\form_completa\practica_ok\{operario_nombre}\{puesto_seleccionado}.pdf",
-            os.path.join(BASE_URL, 'media', 'form_completa', 'practica_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
+            shared_media_path('form_completa', 'practica_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
             os.path.join(output_directory, f"{operario_nombre}_producto_formacion.pdf"),
             # rf"C:\sonova\formaciones\media\form_completa\producto_ok\{operario_nombre}\{puesto_seleccionado}.pdf",            
-            os.path.join(BASE_URL, 'media', 'form_completa', 'producto_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
+            shared_media_path('form_completa', 'producto_ok', operario_nombre, f"{puesto_seleccionado}.pdf"),
         ]
 
         # Añadir los PDFs en orden
@@ -1877,7 +1891,7 @@ def generar_pdf(request):
             os.remove(path)
 
     # shutil.rmtree(rf"C:\sonova\formaciones\media\form_completa\firmas\{operario_nombre}\{puesto_seleccionado}")
-    shutil.rmtree(os.path.join(BASE_URL, 'media', 'form_completa', 'firmas', operario_nombre, puesto_seleccionado))
+    shutil.rmtree(shared_media_path('form_completa', 'firmas', operario_nombre, puesto_seleccionado))
     
     pdf = completa.objects.get(OPERARIO=operario_nombre, PUESTO=puesto_seleccionado)
     pdf.firmas['PDF'] = pdf_final_path
@@ -1899,7 +1913,7 @@ def ver_pdf_form(request, nombre, puesto):
     puesto_traducido = puestos_dict[puesto]
     #Vista para servir el PDF como descarga
     # pdf_path = os.path.join(settings.MEDIA_ROOT, 'documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
-    pdf_path = os.path.join(BASE_URL, 'media', 'documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
+    pdf_path = shared_media_path('documentos', nombre, puesto_traducido, f"{puesto_traducido}_formacion_completa.pdf")
     if not os.path.exists(pdf_path):
         raise Http404("El archivo no existe")
 
@@ -2255,3 +2269,142 @@ def registrar_auditoria(request):
         
 
     return redirect('auditoria_diaria')  # Redirigir a la página de auditoría diaria
+
+
+####################################################################### GESTOR PLANTILLAS .TXT #######################################################################################
+
+PLANTILLAS_ROOT = shared_plantillas_path()
+
+
+def _safe_path(base, *parts):
+    """Devuelve una ruta absoluta dentro de base, o None si hay directory traversal."""
+    candidate = os.path.realpath(os.path.join(base, *parts))
+    base_real = os.path.realpath(base)
+    if candidate.startswith(base_real + os.sep) or candidate == base_real:
+        return candidate
+    return None
+
+
+def _listar_directorio(abs_dir, rel_dir):
+    """Devuelve listas de subcarpetas y archivos .txt en abs_dir."""
+    carpetas = []
+    archivos = []
+    try:
+        for entry in sorted(os.scandir(abs_dir), key=lambda e: (not e.is_dir(), e.name.lower())):
+            rel = (rel_dir + '/' + entry.name) if rel_dir else entry.name
+            if entry.is_dir():
+                carpetas.append({'nombre': entry.name, 'rel': rel})
+            elif entry.is_file() and entry.name.lower().endswith('.txt'):
+                archivos.append({'nombre': entry.name, 'rel': rel})
+    except PermissionError:
+        pass
+    return carpetas, archivos
+
+
+def _breadcrumbs(rel_dir):
+    """Genera lista de migas de pan [{nombre, rel}] para la ruta relativa actual."""
+    if not rel_dir:
+        return []
+    partes = rel_dir.replace('\\', '/').split('/')
+    crumbs = []
+    acumulado = ''
+    for p in partes:
+        acumulado = (acumulado + '/' + p) if acumulado else p
+        crumbs.append({'nombre': p, 'rel': acumulado})
+    return crumbs
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def edicion_plantillas(request):
+    base = PLANTILLAS_ROOT
+
+    # Parámetros de navegación
+    subdir = request.GET.get('subdir', '').strip().strip('/\\')
+    file_rel = request.GET.get('file', '').strip().strip('/\\')
+
+    # Calcular directorio actual
+    if subdir:
+        abs_dir = _safe_path(base, subdir)
+        if not abs_dir or not os.path.isdir(abs_dir):
+            messages.error(request, "Carpeta no válida.")
+            return redirect('edicion_plantillas')
+    else:
+        abs_dir = base
+        subdir = ''
+
+    # ── Acciones POST ─────────────────────────────────────────────────────────
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+
+        # Guardar / crear archivo
+        if accion in ('guardar', 'crear'):
+            nombre = request.POST.get('nombre_archivo', '').strip()
+            contenido = request.POST.get('contenido', '')
+            destino_dir_rel = request.POST.get('dir_actual', '')
+            if not nombre:
+                messages.error(request, "El nombre del archivo no puede estar vacío.")
+            else:
+                if not nombre.lower().endswith('.txt'):
+                    nombre += '.txt'
+                abs_file = _safe_path(base, destino_dir_rel, nombre) if destino_dir_rel else _safe_path(base, nombre)
+                if not abs_file:
+                    messages.error(request, "Ruta no válida.")
+                else:
+                    try:
+                        with open(abs_file, 'w', encoding='utf-8') as f:
+                            f.write(contenido)
+                        messages.success(request, f"Archivo '{nombre}' guardado correctamente.")
+                    except Exception as e:
+                        messages.error(request, f"Error al guardar: {e}")
+            # Redirigir al directorio actual
+            params = f"?subdir={destino_dir_rel}" if destino_dir_rel else ''
+            return redirect(f"{reverse('edicion_plantillas')}{params}")
+
+        # Eliminar archivo
+        elif accion == 'eliminar':
+            file_a_borrar = request.POST.get('file_rel', '').strip()
+            abs_file = _safe_path(base, file_a_borrar) if file_a_borrar else None
+            dir_despues = request.POST.get('dir_actual', '')
+            if not abs_file or not os.path.isfile(abs_file):
+                messages.error(request, "Archivo no encontrado.")
+            else:
+                try:
+                    os.remove(abs_file)
+                    messages.success(request, f"Archivo '{os.path.basename(abs_file)}' eliminado.")
+                except Exception as e:
+                    messages.error(request, f"Error al eliminar: {e}")
+            params = f"?subdir={dir_despues}" if dir_despues else ''
+            return redirect(f"{reverse('edicion_plantillas')}{params}")
+
+    # ── Vista de edición de archivo ───────────────────────────────────────────
+    archivo_contexto = None
+    if file_rel:
+        abs_file = _safe_path(base, file_rel)
+        if abs_file and os.path.isfile(abs_file):
+            try:
+                with open(abs_file, 'r', encoding='utf-8') as f:
+                    contenido_archivo = f.read()
+                archivo_contexto = {
+                    'rel': file_rel,
+                    'nombre': os.path.basename(abs_file),
+                    'contenido': contenido_archivo,
+                    'dir_actual': subdir,
+                }
+            except Exception as e:
+                messages.error(request, f"No se pudo leer el archivo: {e}")
+        else:
+            messages.error(request, "Archivo no encontrado.")
+
+    # ── Lista de carpetas y archivos ──────────────────────────────────────────
+    carpetas, archivos = _listar_directorio(abs_dir, subdir)
+    breadcrumbs = _breadcrumbs(subdir)
+
+    return render(request, 'edicion_plantillas.html', {
+        'carpetas': carpetas,
+        'archivos': archivos,
+        'subdir': subdir,
+        'breadcrumbs': breadcrumbs,
+        'archivo': archivo_contexto,
+        'mensaje': messages.get_messages(request),
+    })

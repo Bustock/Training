@@ -313,13 +313,13 @@
                                     {% endif %}
                                 </div>
 
-                                <!-- Responsable -->
+                                <!-- Supervisor -->
                                 <div style="text-align: center;">
-                                    {% if estado_firmas.firma_responsable %}
-                                        <a class="boton boton-deshabilitado"><f>Responsable</f></a><br><br>
+                                    {% if estado_firmas.firma_supervisor %}
+                                        <a class="boton boton-deshabilitado"><f>Supervisor</f></a><br><br>
                                         <span style="color: rgb(0, 255, 0);">&#10004;</span>
                                     {% else %}
-                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_responsable&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Responsable</f></a><br><br>
+                                        <a href="{% url 'firmar_formacion' %}?tipo_firma=firma_supervisor&operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" class="boton"><f>Supervisor</f></a><br><br>
                                         <span style="color: red; font-size: 20px;">&#10060;</span>
                                     {% endif %}
                                 </div>
@@ -339,7 +339,7 @@
                         </div><br>
 
                     {% endif %}
-                    {% if estado_firmas.firma_alumno and estado_firmas.firma_formador and estado_firmas.firma_responsable and estado_firmas.firma_dpto %}
+                    {% if estado_firmas.firma_alumno and estado_firmas.firma_formador and estado_firmas.firma_supervisor and estado_firmas.firma_dpto %}
                         {%if estado_firmas.PDF %}
                         <div style="display: flex; gap: 40px; align-items: center; justify-content: center">
   <div>
@@ -421,21 +421,54 @@
         });
 </script>
 <script>
+function copiarTexto(texto, mensajeOk) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto)
+            .then(() => {
+                alert(mensajeOk + "\n" + texto);
+            })
+            .catch(err => {
+                console.error("Error al copiar con Clipboard API:", err);
+                copiarTextoFallback(texto, mensajeOk);
+            });
+        return;
+    }
+
+    copiarTextoFallback(texto, mensajeOk);
+}
+
+function copiarTextoFallback(texto, mensajeOk) {
+    const textArea = document.createElement('textarea');
+    textArea.value = texto;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const copiado = document.execCommand('copy');
+        if (copiado) {
+            alert(mensajeOk + "\n" + texto);
+        } else {
+            throw new Error('execCommand devolvió false');
+        }
+    } catch (err) {
+        console.error("Error al copiar con fallback:", err);
+        prompt("No se pudo copiar automáticamente. Copia este enlace manualmente:", texto);
+    } finally {
+        document.body.removeChild(textArea);
+    }
+}
+
 function copiarURLAlClipboard() {
     const baseUrl = window.location.origin + "{% url 'completar_teoria' %}";
     const operario = encodeURIComponent("{{ operarios_info.nombre }}");
     const puesto = encodeURIComponent("{{ puesto_seleccionado }}");
 
     const fullUrl = `${baseUrl}?operario_nombre=${operario}&puesto_seleccionado=${puesto}`;
-
-    navigator.clipboard.writeText(fullUrl)
-        .then(() => {
-            alert("Enlace al examen copiado al portapapeles:\n" + fullUrl);
-        })
-        .catch(err => {
-            console.error("Error al copiar:", err);
-            alert("No se pudo copiar la URL");
-        });
+    copiarTexto(fullUrl, "Enlace al examen copiado al portapapeles:");
 }
 
 function copiarURLFirmaAlumno() {
@@ -443,15 +476,7 @@ function copiarURLFirmaAlumno() {
     const operario = encodeURIComponent("{{ operarios_info.nombre }}");
     const puesto = encodeURIComponent("{{ puesto_seleccionado }}");
     const fullUrl = `${baseUrl}?tipo_firma=firma_alumno&operario=${operario}&puesto=${puesto}`;
-
-    navigator.clipboard.writeText(fullUrl)
-        .then(() => {
-            alert("Enlace de firma del alumno copiado al portapapeles:\n" + fullUrl);
-        })
-        .catch(err => {
-            console.error("Error al copiar:", err);
-            alert("No se pudo copiar la URL");
-        });
+    copiarTexto(fullUrl, "Enlace de firma del alumno copiado al portapapeles:");
 }
 </script>
 

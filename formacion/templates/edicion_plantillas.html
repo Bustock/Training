@@ -1,0 +1,556 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            text-align: center;
+            background-color: #f5f7fa;
+            background-image: url("{% static 'fondo_esquina.png' %}");
+            background-size: 800px 240px;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+            transition: background-size 1s ease, background-position 0.8s ease;
+        }
+        body.animate-background {
+            background-size: 200px 60px;
+            background-position: 10px 10px;
+        }
+
+        /* ── Cabecera ── */
+        h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px 30px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 25px;
+            color: #fff;
+            margin: 20px auto 10px;
+        }
+
+        /* ── Mensajes ── */
+        .mensajes { padding: 0 24px 8px; }
+        .alert-card {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            border-left: 6px solid #3b82f6;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+            padding: 12px 16px;
+            margin: 12px auto;
+            border-radius: 12px;
+            max-width: 900px;
+            text-align: center;
+        }
+        .alert-card.success { border-left-color: #16a34a; color: #166534; }
+        .alert-card.error   { border-left-color: #dc2626; color: #991b1b; }
+        .alert-card.warning { border-left-color: #f59e0b; color: #92400e; }
+        .alert-card.info    { border-left-color: #0ea5e9; color: #0c4a6e; }
+        .alert-card p, .alert-card h2, .alert-card h3 { margin: 0; color: inherit; }
+
+        /* ── Botón volver ── */
+        .fixed-back {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.7);
+            padding: 2px;
+        }
+
+        /* ── Botones generales ── */
+        .button-pop {
+            transition: transform 0.2s ease;
+        }
+        .button-pop.pop-effect {
+            transform: scale(1.15);
+        }
+
+        /* ── Layout principal ── */
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            padding: 16px 24px 24px;
+            text-align: left;
+        }
+
+        /* ── Panel lateral (árbol) ── */
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        .sidebar-title {
+            background-color: rgb(0, 132, 203);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            margin: -16px -16px 12px;
+            padding: 10px 14px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Migas de pan */
+        .breadcrumbs {
+            font-size: 0.82rem;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            color: #6b7280;
+        }
+        .breadcrumbs a { color: rgb(0, 132, 203); text-decoration: none; }
+        .breadcrumbs a:hover { text-decoration: underline; }
+        .breadcrumbs .sep { color: #9ca3af; }
+
+        /* Entradas de carpetas y archivos */
+        .file-list { list-style: none; padding: 0; margin: 0; }
+        .file-list li {
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .file-list li a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 0.9rem;
+            width: 100%;
+        }
+        .file-list li:hover { background: #e8f4fb; }
+        .file-list li.active { background: #cce8f6; }
+        .file-list li.active a { color: rgb(0, 100, 160); font-weight: 600; }
+        .file-list li .icon-folder { color: #f59e0b; }
+        .file-list li .icon-file   { color: #6b7280; }
+
+        .section-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #9ca3af;
+            margin: 12px 0 4px 8px;
+            letter-spacing: 0.05em;
+        }
+
+        /* Botón nuevo archivo */
+        .btn-new {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 14px;
+            background: rgb(0, 132, 203);
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            padding: 8px 14px;
+            font-size: 0.88rem;
+            cursor: pointer;
+            width: 100%;
+            justify-content: center;
+            box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+        }
+        .btn-new:hover { transform: scale(1.04); }
+
+        /* ── Panel de edición ── */
+        .editor-panel {
+            flex: 1;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+            min-width: 0;
+            overflow: hidden;
+        }
+        .editor-panel-header {
+            background-color: rgb(0, 132, 203);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .editor-panel-body {
+            padding: 18px 22px 22px;
+        }
+
+        /* Formulario nombre */
+        .nombre-file-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .nombre-file-row label { font-size: 0.9rem; font-weight: 600; white-space: nowrap; color: #374151; }
+        .nombre-file-row input[type="text"] {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.9rem;
+            flex: 1;
+            max-width: 340px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .nombre-file-row input[type="text"]:focus { border-color: rgb(0,132,203); }
+        .ext-hint { font-size: 0.8rem; color: #9ca3af; }
+
+        /* CodeMirror */
+        .CodeMirror {
+            height: 500px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        /* Botones de acción del editor */
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 9px 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            box-shadow: 0px 3px 6px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease;
+            text-decoration: none;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .btn:active { transform: scale(0.97); }
+        .btn-save   { background: #16a34a; color: #fff; }
+        .btn-delete { background: #dc2626; color: #fff; }
+        .btn-cancel { background: #e5e7eb; color: #374151; }
+
+        /* Placeholder (sin archivo seleccionado) */
+        .placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #9ca3af;
+            gap: 12px;
+        }
+        .placeholder i { font-size: 3.5rem; color: rgb(0, 132, 203); opacity: 0.4; }
+        .placeholder p { font-size: 1rem; margin: 0; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 10px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0px 8px 24px rgba(0,0,0,0.3);
+            overflow: hidden;
+            text-align: center;
+        }
+        .modal-header {
+            background-color: rgb(0, 132, 203);
+            color: #fff;
+            padding: 14px 20px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-header.danger { background-color: #dc2626; }
+        .modal-body-inner {
+            padding: 20px 24px 24px;
+        }
+        .modal-box p { color: #6b7280; font-size: 0.92rem; margin: 0 0 20px; }
+        .modal-actions { display: flex; gap: 12px; justify-content: center; }
+
+        /* Modal nuevo archivo */
+        .modal-new-body { text-align: left; }
+        .modal-new-body label { font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px; color: #374151; }
+        .modal-new-body input[type="text"] {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .modal-new-body input[type="text"]:focus { border-color: rgb(0,132,203); }
+        .ext-hint-block { display: block; font-size: 0.78rem; color: #9ca3af; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- Botón volver fijo -->
+<a href="{% url 'inicio' %}" class="fixed-back" title="Ir al inicio">
+    <img src="{% static 'fondo_esquina.png' %}" alt="inicio" style="width: 200px; height: 60px; display: block;">
+</a>
+
+<!-- Título -->
+<h1><i class="fas fa-file-alt"></i> Plantillas de exámenes</h1>
+
+<!-- Mensajes -->
+{% if mensaje %}
+<div class="mensajes">
+    {% for m in mensaje %}
+        <div class="alert-card
+            {% if m.tags == 'success' %}success
+            {% elif m.tags == 'error' %}error
+            {% elif m.tags == 'warning' %}warning
+            {% else %}info{% endif %}">
+            {{ m }}
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="main-layout">
+    <!-- Panel lateral -->
+    <aside class="sidebar">
+        <div class="sidebar-title"><i class="fas fa-folder-open"></i> Archivos</div>
+
+        <!-- Migas de pan -->
+        <nav class="breadcrumbs">
+            <a href="{% url 'edicion_plantillas' %}"><i class="fas fa-home"></i></a>
+            {% for crumb in breadcrumbs %}
+                <span class="sep">/</span>
+                <a href="{% url 'edicion_plantillas' %}?subdir={{ crumb.rel }}">{{ crumb.nombre }}</a>
+            {% endfor %}
+        </nav>
+
+        <!-- Carpetas -->
+        {% if carpetas %}
+            <p class="section-label"><i class="fas fa-folder"></i> Carpetas</p>
+            <ul class="file-list">
+                {% for c in carpetas %}
+                <li>
+                    <a href="{% url 'edicion_plantillas' %}?subdir={{ c.rel }}">
+                        <i class="fas fa-folder icon-folder"></i> {{ c.nombre }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <!-- Archivos .txt -->
+        {% if archivos %}
+            <p class="section-label"><i class="fas fa-file-alt"></i> Archivos .txt</p>
+            <ul class="file-list">
+                {% for f in archivos %}
+                <li class="{% if archivo and archivo.rel == f.rel %}active{% endif %}">
+                    <a href="{% url 'edicion_plantillas' %}?{% if subdir %}subdir={{ subdir }}&{% endif %}file={{ f.rel }}">
+                        <i class="fas fa-file-alt icon-file"></i> {{ f.nombre }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if not carpetas and not archivos %}
+            <p style="font-size:0.85rem; color:#9ca3af; text-align:center; margin-top:16px;">Carpeta vacía</p>
+        {% endif %}
+
+        <!-- Botón nuevo archivo -->
+        <button class="btn-new button-pop" onclick="abrirModalNuevo()">
+            <i class="fas fa-plus"></i> Nuevo archivo .txt
+        </button>
+    </aside>
+
+    <!-- Panel de edición -->
+    <section class="editor-panel">
+        {% if archivo %}
+            <div class="editor-panel-header">
+                <i class="fas fa-edit"></i> {{ archivo.nombre }}
+            </div>
+            <div class="editor-panel-body">
+                <form method="POST" id="form-editor">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="guardar">
+                    <input type="hidden" name="dir_actual" value="{{ archivo.dir_actual }}">
+
+                    <div class="nombre-file-row">
+                        <label for="nombre_archivo">Nombre:</label>
+                        <input type="text" id="nombre_archivo" name="nombre_archivo"
+                               value="{{ archivo.nombre }}"
+                               placeholder="nombre_archivo">
+                        <span class="ext-hint">(.txt se añade si falta)</span>
+                    </div>
+
+                    <textarea id="editor-textarea" name="contenido">{{ archivo.contenido }}</textarea>
+
+                    <div class="editor-actions">
+                        <button type="submit" class="btn btn-save button-pop">
+                            <i class="fas fa-save"></i> Guardar cambios
+                        </button>
+                        <button type="button" class="btn btn-delete button-pop"
+                                onclick="abrirModalEliminar('{{ archivo.rel }}', '{{ archivo.dir_actual }}', '{{ archivo.nombre }}')">
+                            <i class="fas fa-trash"></i> Eliminar archivo
+                        </button>
+                        <a href="{% url 'edicion_plantillas' %}{% if subdir %}?subdir={{ subdir }}{% endif %}"
+                           class="btn btn-cancel button-pop">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+        {% else %}
+            <div class="placeholder">
+                <i class="fas fa-file-alt"></i>
+                <p>Selecciona un archivo de la lista o crea uno nuevo.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+<!-- ── Modal Eliminar ── -->
+<div class="modal-overlay" id="modal-eliminar">
+    <div class="modal-box">
+        <div class="modal-header danger">
+            <i class="fas fa-exclamation-triangle"></i> Confirmar eliminación
+        </div>
+        <div class="modal-body-inner">
+            <p id="modal-eliminar-texto">¿Estás seguro de que quieres eliminar este archivo?</p>
+            <form method="POST" id="form-eliminar">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="eliminar">
+                <input type="hidden" name="file_rel" id="input-file-rel">
+                <input type="hidden" name="dir_actual" id="input-dir-eliminar">
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-delete button-pop"><i class="fas fa-trash"></i> Eliminar</button>
+                    <button type="button" class="btn btn-cancel button-pop" onclick="cerrarModalEliminar()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal Nuevo archivo ── -->
+<div class="modal-overlay" id="modal-nuevo">
+    <div class="modal-box">
+        <div class="modal-header">
+            <i class="fas fa-plus-circle"></i> Nuevo archivo
+        </div>
+        <div class="modal-body-inner modal-new-body">
+            <form method="POST" id="form-nuevo">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="crear">
+                <input type="hidden" name="dir_actual" value="{{ subdir }}">
+                <input type="hidden" name="contenido" value="">
+                <label for="nuevo-nombre">Nombre del archivo:</label>
+                <input type="text" id="nuevo-nombre" name="nombre_archivo"
+                       placeholder="nombre_plantilla" autofocus>
+                <span class="ext-hint-block">Se guardará como .txt automáticamente</span>
+                <div class="modal-actions" style="margin-top:18px;">
+                    <button type="submit" class="btn btn-save button-pop"><i class="fas fa-plus"></i> Crear</button>
+                    <button type="button" class="btn btn-cancel button-pop" onclick="cerrarModalNuevo()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── button-pop ────────────────────────────────────────────────────────────
+    document.querySelectorAll('.button-pop').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            this.classList.add('pop-effect');
+            setTimeout(() => this.classList.remove('pop-effect'), 200);
+        });
+    });
+
+    // ── CodeMirror ────────────────────────────────────────────────────────────
+    var textarea = document.getElementById('editor-textarea');
+    if (textarea) {
+        var editor = CodeMirror.fromTextArea(textarea, {
+            mode: 'null',
+            theme: 'dracula',
+            lineNumbers: true,
+            lineWrapping: true,
+            tabSize: 4,
+            indentWithTabs: false,
+            autofocus: false,
+        });
+        document.getElementById('form-editor').addEventListener('submit', function() {
+            editor.save();
+        });
+    }
+
+    // ── Modal Eliminar ────────────────────────────────────────────────────────
+    function abrirModalEliminar(fileRel, dirActual, nombre) {
+        document.getElementById('modal-eliminar-texto').textContent =
+            '¿Estás seguro de que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.';
+        document.getElementById('input-file-rel').value = fileRel;
+        document.getElementById('input-dir-eliminar').value = dirActual;
+        document.getElementById('modal-eliminar').classList.add('active');
+    }
+    function cerrarModalEliminar() {
+        document.getElementById('modal-eliminar').classList.remove('active');
+    }
+    document.getElementById('modal-eliminar').addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalEliminar();
+    });
+
+    // ── Modal Nuevo ───────────────────────────────────────────────────────────
+    function abrirModalNuevo() {
+        document.getElementById('nuevo-nombre').value = '';
+        document.getElementById('modal-nuevo').classList.add('active');
+        setTimeout(() => document.getElementById('nuevo-nombre').focus(), 50);
+    }
+    function cerrarModalNuevo() {
+        document.getElementById('modal-nuevo').classList.remove('active');
+    }
+    document.getElementById('modal-nuevo').addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalNuevo();
+    });
+</script>
+</body>
+</html>

@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-$f#1hzx90d3pog0!)kl8+u87bqdi*24stj!n@3zyfz)p$%oo)3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*','10.82.10.60']
 
 
 # Application definition
@@ -80,14 +80,28 @@ WSGI_APPLICATION = 'formaciones.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# Para desarrollo con SQLite (descomenta esta sección y comenta la siguiente)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'formaciones.sqlite3',
-        #'NAME':  r'\\es01sw31\APP Training Tool\BBDD\formaciones.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
+'''
+# Para desarrollo con PostgreSQL (descomenta esta sección y comenta la anterior)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'training',
+        'USER': 'training_user',
+        'PASSWORD': 'RCSETraining',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+'''
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -158,6 +172,7 @@ AXES_RESET_ON_SUCCESS = True
 
 # Caducidad de contraseñas (días)
 PASSWORD_EXPIRATION_DAYS = 90
+#PASSWORD_EXPIRATION_DAYS = 5 / (24 * 60)  # Línea de prueba: 5 minutos
 
 # Cookies
 CSRF_COOKIE_NAME = "csrftoken_proyecto_formaciones"
@@ -165,7 +180,16 @@ SESSION_COOKIE_NAME = "sessionid_proyecto_formaciones"
 CSRF_USE_SESSIONS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://10.82.12.39:8000",
-    "http://10.82.12.39:8001",
-    "http://10.82.12.39:8002"
+    'http://10.82.10.60:80',
+    'http://10.82.10.60:81',
+    'http://10.82.10.60:82',
+    'http://10.82.10.60:83',
+    'http://10.82.10.60:84',
+    'http://10.82.10.60:85',
 ]
+
+# Indica a Django que confíe en las cabeceras que envía Nginx
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+LIBREOFFICE_PATH = r"C:\Program Files\LibreOffice\program\soffice.exe"

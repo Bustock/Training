@@ -71,14 +71,18 @@
             {% elif tipo_firma == "firma_formador" %}
                 <p class="message"><strong><h2>FIRMA DEL FORMADOR<h2></strong></p>
                     <input type="text" id="dni" name="dni" value="00000000A" style="display: none;">
-            {% elif tipo_firma == "firma_responsable" %}
-                <p class="message"><strong><h2>FIRMA DEL RESPONSABLE<h2></strong></p>
+                <label for="formador"><strong>Formador:</strong></label>
+                <input type="text" id="formador" name="formador" required><br>
+            {% elif tipo_firma == "firma_supervisor" %}
+                <p class="message"><strong><h2>FIRMA DEL SUPERVISOR<h2></strong></p>
                 <input type="text" id="dni" name="dni" value="00000000A" style="display: none;">
-                <label for="responsable"><strong>Responsable de la formacion:</strong></label>
-                <input type="text" id="responsable" name="responsable" required><br>
+                <label for="supervisor"><strong>Supervisor de la formacion:</strong></label>
+                <input type="text" id="supervisor" name="supervisor" required><br>
             {% elif tipo_firma == "firma_dpto" %}
                 <p class="message"><strong><h2>FIRMA DEL DPTO. DE TRAINING<h2></strong></p>
                     <input type="text" id="dni" name="dni" value="00000000A" style="display: none;">
+                <label for="dpto"><strong>Dpto. de Training:</strong></label>
+                <input type="text" id="dpto" name="dpto" required><br>
             {% endif %}
 
         

@@ -38,4 +38,5 @@ urlpatterns = [
     path('grafica', grafica, name='grafica'),
     path('auditoria_diaria', auditoria_diaria, name='auditoria_diaria'),
     path('registrar_auditoria', registrar_auditoria, name='registrar_auditoria'),
+    path('edicion_plantillas', edicion_plantillas, name='edicion_plantillas'),
 ]
