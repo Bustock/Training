@@ -1928,6 +1928,13 @@ def generar_pdf(request):
     pdf.firmas['PDF'] = pdf_final_path
     pdf.creado_por = request.user
     pdf.save()
+
+    tecnico = polivalencia.objects.filter(OPERARIO=operario_nombre).first()
+    if tecnico and hasattr(tecnico, puesto_seleccionado):
+        if getattr(tecnico, puesto_seleccionado) == 1:
+            setattr(tecnico, puesto_seleccionado, 2)
+            tecnico.modificado_por = request.user
+            tecnico.save()
     
     messages.add_message(request, messages.INFO, "Documento de formación generado correctamente.")
     #return redirect('formacion_completa')  # Redirigir a la página de éxito o donde corresponda
