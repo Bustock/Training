@@ -18,6 +18,9 @@ puestos_dict = {
     'DIAG_TITANIUM': 'DIAGNÓSTICO TITANIUM',
     'REPAIR_FM_DWA': 'REPAIR FM/DWA',
     'REPAIR_CARGADORES': 'REPAIR CARGADORES',
+    'TRESA_BLOQUE_1': 'TRESA BLOQUE 1',
+    'TRESA_BLOQUE_2': 'TRESA BLOQUE 2',
+    'TRESA_BLOQUE_3': 'TRESA BLOQUE 3',
     'REPAIR_BTE': 'REPAIR BTE',
     'RSM': 'RSM',
     'MINI_KITTING': 'MINI-KITTING',
@@ -41,6 +44,7 @@ puestos_dict = {
     'PRO_GO_BTE': 'PRO&GO BTE',
     'PRO_GO_FM_DWA': 'PRO&GO FM/DWA',
     'PACKING_NEW': 'PACKING NEW',
+    'BULK': 'BULK',
     'PACKING_SERVICE': 'PACKING SERVICE',
     'RPM_DESMONTAJE_LIMPIEZA': 'RPM: DESMONTAJE Y LIMPIEZA',
     'RPM_DECONTAMINACION': 'RPM: DECONTAMINACIÓN',
@@ -89,7 +93,7 @@ class OperarioComp(forms.Form):
             for field in operario._meta.fields:
                 if field.name not in campos_excluidos:
                     valor = getattr(operario, field.name)
-                    if valor == 4:
+                    if valor == 1:
                         operarios_filtrados.append((operario.OPERARIO, operario.OPERARIO))
                         break
 
@@ -122,7 +126,7 @@ class PuestoComp(forms.Form):
         campos_excluidos = ('id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en')
         for field in polivalencia._meta.fields:
             if field.name not in campos_excluidos:
-                if polivalencia.objects.filter(**{field.name: 4}).exists():
+                if polivalencia.objects.filter(**{field.name: 1}).exists():
                     if field.name in puestos_dict:
                         campos_validos.append((field.name, puestos_dict[field.name]))
 

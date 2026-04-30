@@ -107,23 +107,18 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: ['Formaciones', 'Formados', 'Expertos'],
             datasets: [
                 {
-                    label: 'Formados (No Habitual)',
-                    data: [0, {{ total_count_1 }}, 0],
-                    backgroundColor: 'rgb(255, 127, 0)' // naranja
-                },
-                {
-                    label: 'Formados (Puesto Habitual)',
-                    data: [0, {{ total_count_2 }}, 0],
-                    backgroundColor: 'rgb(255, 255, 0)' // amarillo
-                },
-                {
                     label: 'Formaciones',
-                    data: [{{ total_count_4 }}, 0, 0],
+                    data: [{{ total_count_formacion }}, 0, 0],
                     backgroundColor: 'rgb(0, 153, 255)' // azul
                 },
                 {
+                    label: 'Formados',
+                    data: [0, {{ total_count_formado }}, 0],
+                    backgroundColor: 'rgb(255, 206, 86)' // amarillo
+                },
+                {
                     label: 'Expertos',
-                    data: [0, 0, {{ total_count_3 }}],
+                    data: [0, 0, {{ total_count_experto }}],
                     backgroundColor: 'rgb(0, 255, 0)' // verde
                 }
             ]

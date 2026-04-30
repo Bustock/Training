@@ -141,7 +141,7 @@ Archivo: [formacion/models.py](formacion/models.py)
 
 - `polivalencia.OPERARIO` es unico.
 - `nuevas_opis.OPI` y `opis.OPI` son unicos.
-- Niveles de `polivalencia` en practica: 0,1,2,3,4.
+- Niveles de `polivalencia` en practica: 0,1,2,3.
 - Flujo actual usa `completa` para registrar progreso de teoria/practica/producto y firmas.
 - JSON keys de `completa.firmas` se usan en varias vistas/templates (no renombrar sin migracion de datos):
   - `firma_alumno`, `firma_formador`, `firma_supervisor`, `firma_dpto`
@@ -161,12 +161,11 @@ Mantener coherencia al crear/modificar registros.
 Uso observado en templates y vistas:
 
 - 0: sin formacion.
-- 1: formado, no puesto habitual.
-- 2: formado, puesto habitual.
+- 1: en formacion.
+- 2: formado.
 - 3: experto.
-- 4: en formacion.
 
-Regla critica: al actualizar matriz desde Excel, se crean entradas en `completa` para combinaciones con nivel 4 si no existen.
+Regla critica: al actualizar matriz desde Excel, se crean entradas en `completa` para combinaciones con nivel 1 si no existen.
 
 ## 8) Permisos, grupos y control de acceso
 
@@ -244,7 +243,7 @@ En [formaciones/urls.py](formaciones/urls.py):
 - Lee Excel `TPL-708 [4] RCSE Matriz de Polivalencia Operarios produccion.xlsx` en raiz del repo.
 - Renombra columnas con `column_mapping`.
 - Borra y recrea `polivalencia`.
-- Sincroniza/crea entradas en `completa` para niveles 4.
+- Sincroniza/crea entradas en `completa` para niveles 1.
 
 Impacto de cambio: cualquier cambio en nombres de columnas/campos rompe importacion.
 

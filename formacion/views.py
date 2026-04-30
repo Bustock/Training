@@ -81,6 +81,9 @@ puestos_dict = {
     'DIAG_TITANIUM': 'DIAGNÓSTICO TITANIUM',
     'REPAIR_FM_DWA': 'REPAIR FM/DWA',
     'REPAIR_CARGADORES': 'REPAIR CARGADORES',
+    'TRESA_BLOQUE_1': 'TRESA BLOQUE 1',
+    'TRESA_BLOQUE_2': 'TRESA BLOQUE 2',
+    'TRESA_BLOQUE_3': 'TRESA BLOQUE 3',
     'REPAIR_BTE': 'REPAIR BTE',
     'RSM': 'RSM',
     'MINI_KITTING': 'MINI-KITTING',
@@ -104,6 +107,7 @@ puestos_dict = {
     'PRO_GO_BTE': 'PRO&GO BTE',
     'PRO_GO_FM_DWA': 'PRO&GO FM/DWA',
     'PACKING_NEW': 'PACKING NEW',
+    'BULK': 'BULK',
     'PACKING_SERVICE': 'PACKING SERVICE',
     'RPM_DESMONTAJE_LIMPIEZA': 'RPM: DESMONTAJE Y LIMPIEZA',
     'RPM_DECONTAMINACION': 'RPM: DECONTAMINACIÓN',
@@ -227,6 +231,9 @@ def actualizar_matriz(request):
         'DIAG. TITANIUM': 'DIAG_TITANIUM',
         'REPAIR FM/DWA': 'REPAIR_FM_DWA',
         'REPAIR CARGADORES': 'REPAIR_CARGADORES',
+        'TRESA Bloque 1': 'TRESA_BLOQUE_1',
+        'TRESA Bloque 2': 'TRESA_BLOQUE_2',
+        'TRESA Bloque 3': 'TRESA_BLOQUE_3',
         'REPAIR BTE': 'REPAIR_BTE',
         'RSM': 'RSM',
         'MINI-KITTING': 'MINI_KITTING',
@@ -250,6 +257,7 @@ def actualizar_matriz(request):
         'PRO& GO BTE': 'PRO_GO_BTE',
         'PRO & GO FM/DWA ': 'PRO_GO_FM_DWA',
         'PACKING NEW': 'PACKING_NEW',
+        'BULK': 'BULK',
         'PACKING SERVICE': 'PACKING_SERVICE',
         'RPM-Desmontaje y limpieza': 'RPM_DESMONTAJE_LIMPIEZA',
         'RPM-Descontaminación': 'RPM_DECONTAMINACION',
@@ -277,13 +285,38 @@ def actualizar_matriz(request):
         messages.add_message(request, messages.ERROR, f'Error al leer el archivo Excel: {str(e)}')
         return redirect(inicio)
 
+    campos_matriz = [campo for campo in column_mapping.values() if campo != 'OPERARIO']
+    usa_escala_legacy = False
+    for campo in campos_matriz:
+        # Si la columna no existe en el Excel, usar una serie vacía para evitar errores.
+        serie = pd.to_numeric(df.get(campo, pd.Series(dtype='float64')), errors='coerce')
+        if (serie.dropna().astype(int) == 4).any():
+            usa_escala_legacy = True
+            break
+
     def normalizar_nivel(valor):
         if pd.isna(valor):
             return 0
         try:
-            return int(valor)
+            nivel = int(valor)
         except (TypeError, ValueError):
             return 0
+
+        # Compatibilidad con escala legacy: 4=en formación, 1/2=formado.
+        if usa_escala_legacy:
+            if nivel == 4:
+                return 1
+            if nivel in [1, 2]:
+                return 2
+            if nivel == 3:
+                return 3
+            return 0
+
+        if nivel in [0, 1, 2, 3]:
+            return nivel
+        if nivel == 4:
+            return 1
+        return 0
 
     operarios_validos = False
     operarios_vistos = set()
@@ -306,9 +339,7 @@ def actualizar_matriz(request):
         operarios_validos = True
 
         datos_polivalencia = {'OPERARIO': operario}
-        for campo in column_mapping.values():
-            if campo == 'OPERARIO':
-                continue
+        for campo in campos_matriz:
             datos_polivalencia[campo] = normalizar_nivel(row.get(campo, 0))
 
         polivalencias_a_crear.append(polivalencia(**datos_polivalencia))
@@ -317,7 +348,7 @@ def actualizar_matriz(request):
         messages.add_message(request, messages.ERROR, 'No se encontraron operarios válidos en el Excel.')
         return redirect(inicio)
 
-    campos_puesto = [campo for campo in column_mapping.values() if campo != 'OPERARIO']
+    campos_puesto = campos_matriz
 
     with transaction.atomic():
         polivalencia.objects.all().delete()
@@ -333,7 +364,7 @@ def actualizar_matriz(request):
         nuevas_combinaciones = []
         for tecnico in matriz_actual:
             for puesto in campos_puesto:
-                if getattr(tecnico, puesto, 0) == 4 and (tecnico.OPERARIO, puesto) not in existentes_completa:
+                if getattr(tecnico, puesto, 0) == 1 and (tecnico.OPERARIO, puesto) not in existentes_completa:
                     nuevas_combinaciones.append(
                         completa(
                             PUESTO=puesto,
@@ -353,7 +384,7 @@ def actualizar_matriz(request):
         advertencias = []
         for registro in completa.objects.all():
             valor_actual = mapa_matriz.get(registro.OPERARIO, {}).get(registro.PUESTO)
-            if valor_actual in [1, 2, 3]:
+            if valor_actual in [2, 3]:
                 if registro.TEORIA and registro.PRACTICA and registro.PRODUCTO:
                     ids_a_eliminar.append(registro.id)
                 else:
@@ -418,7 +449,7 @@ def formacion_opis(request):
                 for seccion in secciones:
                     if hasattr(operario, seccion):
                         field_value = getattr(operario, seccion)
-                        if isinstance(field_value, int) and field_value not in [0, 4]:
+                        if isinstance(field_value, int) and field_value not in [0, 1]:
                             valores_validos[seccion] = field_value
 
                 if valores_validos:
@@ -433,7 +464,7 @@ def formacion_opis(request):
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 4]
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 1]
                 ]
 
                 operarios_info = {
@@ -447,9 +478,9 @@ def formacion_opis(request):
 
         if puesto_seleccionado:
             puesto_traducido = puestos_dict[puesto_seleccionado] 
-            # Filtrar técnicos que NO tengan 0 ni 4 en el campo correspondiente
+            # Filtrar técnicos que NO tengan 0 ni 1 en el campo correspondiente
             tecnicos_info = polivalencia.objects.exclude(
-                Q(**{puesto_seleccionado: 0}) | Q(**{puesto_seleccionado: 4})
+                Q(**{puesto_seleccionado: 0}) | Q(**{puesto_seleccionado: 1})
             ).values('OPERARIO', puesto_seleccionado)
 
             # Crear un filtro dinámico con Q objects para SECCION1 a SECCION7
@@ -968,7 +999,7 @@ def formacion_completa(request):
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) == 4
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) == 1
                 ]
                 
 
@@ -984,9 +1015,9 @@ def formacion_completa(request):
         if puesto_seleccionado:
             puesto_traducido = puestos_dict[puesto_seleccionado]
 
-            # ✅ Filtrar técnicos que SÍ tienen 4 en el campo correspondiente
+            # ✅ Filtrar técnicos que SÍ están en formación en el campo correspondiente
             tecnicos_info = polivalencia.objects.filter(
-                Q(**{puesto_seleccionado: 4})
+                Q(**{puesto_seleccionado: 1})
             ).values('OPERARIO', puesto_seleccionado)
 
             # ✅ Crear filtro dinámico SECCION1-SECCION7
@@ -1936,12 +1967,12 @@ def editar_matriz(request):
     puesto_seleccionado = []
     puesto_traducido = []
     eliminar_form = EliminarForm(request.GET)
-    count_4 = 0
-    count_3 = 0
-    count_1_2 = 0
-    total_count_4 = 0
-    total_count_3 = 0
-    total_count_1_2 = 0
+    count_formacion = 0
+    count_experto = 0
+    count_formado = 0
+    total_count_formacion = 0
+    total_count_experto = 0
+    total_count_formado = 0
 
     if operario_form.is_valid():
         operario_seleccionado = operario_form.cleaned_data.get('OPERARIO')
@@ -1961,13 +1992,13 @@ def editar_matriz(request):
 
                     if valor == 0:
                         campos_cero.append((nombre_campo, etiqueta))
-                    elif valor in [1, 2, 3, 4]:
+                    elif valor in [1, 2, 3]:
                         campos_con_valor.append((nombre_campo, etiqueta, valor))
 
                 operarios_info = {
                     'nombre': operario_obj.OPERARIO,
                     'campos_cero': campos_cero,  # lista de tuplas (clave, etiqueta) con valor 0
-                    'campos_con_valor': campos_con_valor  # lista de tuplas (clave, etiqueta) con valor 1-4
+                    'campos_con_valor': campos_con_valor  # lista de tuplas (clave, etiqueta) con valor 1-3
                 }
 
     if puesto_form.is_valid():
@@ -1977,33 +2008,33 @@ def editar_matriz(request):
         if puesto_seleccionado:
             puesto_traducido = puestos_dict[puesto_seleccionado]
 
-            count_4 = polivalencia.objects.filter(**{puesto_seleccionado: 4}).count()
-            count_3 = polivalencia.objects.filter(**{puesto_seleccionado: 3}).count()
-            count_1_2 = polivalencia.objects.filter(**{f"{puesto_seleccionado}__in": [1, 2]}).count()
+            count_formacion = polivalencia.objects.filter(**{puesto_seleccionado: 1}).count()
+            count_experto = polivalencia.objects.filter(**{puesto_seleccionado: 3}).count()
+            count_formado = polivalencia.objects.filter(**{puesto_seleccionado: 2}).count()
 
             # Obtener todos los técnicos con su valor para ese campo
             tecnicos_raw = polivalencia.objects.all().values('OPERARIO', puesto_seleccionado)
 
-            tecnicos_valor_1_2 = []
-            tecnicos_valor_3 = []
-            tecnicos_valor_4 = []
+            tecnicos_valor_formado = []
+            tecnicos_valor_experto = []
+            tecnicos_valor_formacion = []
 
 
             for tecnico in tecnicos_raw:
                 operario = tecnico['OPERARIO']
                 valor = tecnico[puesto_seleccionado]
 
-                if valor in [1, 2]:
-                    tecnicos_valor_1_2.append({'OPERARIO': operario, 'valor': valor})
+                if valor == 2:
+                    tecnicos_valor_formado.append({'OPERARIO': operario, 'valor': valor})
                 elif valor == 3:
-                    tecnicos_valor_3.append({'OPERARIO': operario, 'valor': valor})
-                elif valor == 4:
-                    tecnicos_valor_4.append({'OPERARIO': operario, 'valor': valor})
+                    tecnicos_valor_experto.append({'OPERARIO': operario, 'valor': valor})
+                elif valor == 1:
+                    tecnicos_valor_formacion.append({'OPERARIO': operario, 'valor': valor})
 
             tecnicos_info = {
-                'con_valor_1_2': tecnicos_valor_1_2,
-                'con_valor_3': tecnicos_valor_3,
-                'con_valor_4': tecnicos_valor_4
+                'con_valor_formado': tecnicos_valor_formado,
+                'con_valor_experto': tecnicos_valor_experto,
+                'con_valor_formacion': tecnicos_valor_formacion
 
             }
             
@@ -2020,9 +2051,9 @@ def editar_matriz(request):
             nivel = getattr(operario_obj, puesto_seleccionado)
 
     for campo in puestos_dict.keys():
-        total_count_4 += polivalencia.objects.filter(**{campo: 4}).count()
-        total_count_3 += polivalencia.objects.filter(**{campo: 3}).count()
-        total_count_1_2 += polivalencia.objects.filter(**{f"{campo}__in": [1, 2]}).count()
+        total_count_formacion += polivalencia.objects.filter(**{campo: 1}).count()
+        total_count_experto += polivalencia.objects.filter(**{campo: 3}).count()
+        total_count_formado += polivalencia.objects.filter(**{campo: 2}).count()
     
 
     return render(request, 'editar_matriz.html', {
@@ -2037,12 +2068,12 @@ def editar_matriz(request):
         'completa_form': completa_form,
         'nivel': nivel,
         'eliminar_form': eliminar_form,
-        'count_4': count_4,
-        'count_3': count_3,
-        'count_1_2': count_1_2,
-        'total_count_4': total_count_4,
-        'total_count_3': total_count_3,
-        'total_count_1_2': total_count_1_2,
+        'count_formacion': count_formacion,
+        'count_experto': count_experto,
+        'count_formado': count_formado,
+        'total_count_formacion': total_count_formacion,
+        'total_count_experto': total_count_experto,
+        'total_count_formado': total_count_formado,
         'mensaje': messages.get_messages(request)
     })
 
@@ -2094,7 +2125,7 @@ def editar_tecnico(request):
                 setattr(tecnico, puesto, int(nuevo_valor))
                 tecnico.modificado_por = request.user
                 tecnico.save()
-                if nuevo_valor == '4':
+                if nuevo_valor == '1':
                     nueva_formacion = completa.objects.create(OPERARIO=operario, PUESTO=puesto, PRACTICA=False, PRODUCTO=False, TEORIA=False, firmas={})
                     nueva_formacion.creado_por = request.user
                     nueva_formacion.save()
@@ -2139,10 +2170,10 @@ def descargar_polivalencia(request):
         if pd.api.types.is_datetime64tz_dtype(df[col]):
             df[col] = df[col].dt.tz_localize(None)
 
-    # 5) Convertir celdas con 0 a vacío y mantener solo 1-4
+    # 5) Convertir celdas con 0 a vacío y mantener solo 1-3
     def limpiar_valor(x):
         if isinstance(x, (int, float)):
-            if x in [1, 2, 3, 4]:
+            if x in [1, 2, 3]:
                 return x
             else:
                 return ""
@@ -2170,18 +2201,20 @@ def descargar_polivalencia(request):
     return response
 
 def grafica(request):
-    total_count_4 = 0
-    total_count_3 = 0
-    total_count_1 = 0
-    total_count_2 = 0
+    total_count_formacion = 0
+    total_count_experto = 0
+    total_count_formado = 0
 
     for campo in puestos_dict.keys():
-        total_count_1 += polivalencia.objects.filter(**{campo: 1}).count()
-        total_count_2 += polivalencia.objects.filter(**{campo: 2}).count()
-        total_count_4 += polivalencia.objects.filter(**{campo: 4}).count()
-        total_count_3 += polivalencia.objects.filter(**{campo: 3}).count()
+        total_count_formacion += polivalencia.objects.filter(**{campo: 1}).count()
+        total_count_formado += polivalencia.objects.filter(**{campo: 2}).count()
+        total_count_experto += polivalencia.objects.filter(**{campo: 3}).count()
         
-    return render(request, 'grafica.html' , {'total_count_4': total_count_4, 'total_count_3': total_count_3, 'total_count_1': total_count_1, 'total_count_2': total_count_2})
+    return render(request, 'grafica.html' , {
+        'total_count_formacion': total_count_formacion,
+        'total_count_experto': total_count_experto,
+        'total_count_formado': total_count_formado
+    })
 
 @groups_required('admin', 'formacion')
 @login_required
@@ -2201,7 +2234,7 @@ def auditoria_diaria(request):
                 campos_validos = [
                     (field.name, puestos_dict.get(field.name, field.name))
                     for field in polivalencia._meta.fields
-                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 4]
+                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 1]
                 ]
 
                 operarios_info = {

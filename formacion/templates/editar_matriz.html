@@ -166,9 +166,9 @@
         <i class="fa fa-download" aria-hidden="true"></i>
     </button><br>
     <a href="{% url 'grafica' %}" style="display: inline-block; background-color:rgba(0, 123, 255, 0); color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-size: 1.5rem; text-align: center;">
-            Formaciones: {{ total_count_4 }}<br>
-            Formados: {{ total_count_1_2 }}<br>    
-            Expertos: {{ total_count_3 }}<br>        
+            Formaciones: {{ total_count_formacion }}<br>
+            Formados: {{ total_count_formado }}<br>    
+            Expertos: {{ total_count_experto }}<br>        
         </a>
     </form>
     <div style="display: flex; justify-content: center; gap: 10px; align-items: flex-start; margin-top: 0px;">
@@ -255,9 +255,9 @@
 
                         <h3>En este puesto:</h3>
                         <h3>
-                            Expertos: {{ count_3 }} | 
-                            Formados: {{ count_1_2 }} | 
-                            Formaciones: {{ count_4 }}
+                            Expertos: {{ count_experto }} | 
+                            Formados: {{ count_formado }} | 
+                            Formaciones: {{ count_formacion }}
                         </h3>
 
                         <div style="display: flex; justify-content: space-between; margin-top: 20px;">
@@ -265,7 +265,7 @@
                                 <div style="width: 48%;">
                                     <h3>EXPERTOS </h3>
                                     <ul style="list-style: none; padding: 0;">
-                                        {% for tecnico in tecnicos_info.con_valor_3 %}
+                                        {% for tecnico in tecnicos_info.con_valor_experto %}
                                             <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
                                         {% endfor %}
                                     </ul>
@@ -273,7 +273,7 @@
                                 <div style="width: 48%;">
                                     <h3>FORMADOS</h3>
                                     <ul style="list-style: none; padding: 0;">
-                                        {% for tecnico in tecnicos_info.con_valor_1_2 %}
+                                        {% for tecnico in tecnicos_info.con_valor_formado %}
                                             <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
                                         {% endfor %}
                                     </ul>
@@ -281,7 +281,7 @@
                                 <div style="width: 48%;">
                                     <h3>EN FORMACION</h3>
                                     <ul style="list-style: none; padding: 0;">
-                                        {% for tecnico in tecnicos_info.con_valor_4 %}
+                                        {% for tecnico in tecnicos_info.con_valor_formacion %}
                                             <li><a href="javascript:void(0);" onclick="selectTecnico('{{ tecnico.OPERARIO }}')">{{ tecnico.OPERARIO }}</a></li>
                                         {% endfor %}
                                     </ul>
@@ -308,15 +308,9 @@
                             <label><h1 style="color: rgb(255, 0, 0);">Nivel 0: Sin Formacion</h1></label><br>
 
                         {% elif nivel == 1 %}
-                            <label><h1 style="color: rgb(255, 127, 0);">Nivel 1: Formado, NO es su puesto habitual</h1></label><br>
-                            <h3>Documento de formación:</h3>
-                            {{ operario.nombre }}
-                                        <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
-                                            <i class="fa-regular fa-eye"></i><br><br>
-                                            Ver PDF
-                                        </a>
+                            <label><h1 style="color: rgb(0, 153, 255);">Nivel 1: En Formación</h1></label><br>
                         {% elif nivel == 2 %}
-                            <label><h1 style="color: rgb(255, 255, 0);">Nivel 2: Formado, es su PUESTO HABITUAL</h1></label><br>
+                            <label><h1 style="color: rgb(255, 127, 0);">Nivel 2: Formado</h1></label><br>
                             <h3>Documento de formación:</h3>
                             {{ operario.nombre }}
                                         <a href="{% url 'ver_pdf_form' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
@@ -331,8 +325,6 @@
                                             <i class="fa-regular fa-eye"></i><br><br>
                                             Ver PDF
                                         </a>
-                        {% elif nivel == 4 %}
-                            <label><h1 style="color: rgb(0, 153, 255);">Nivel 4: En Formación</h1></label>        
                         {% endif %}
                     </ul>
                     <input type="hidden" name="operario" value="{{ operarios_info.nombre }}">
@@ -340,10 +332,9 @@
                     <label for="nuevo_valor">Modificar nivel:</label>
                     <select name="nuevo_valor" id="nuevo_valor" required>
                         <option value="0">0 - Sin Formación</option>
-                        <option value="1">1 - Formado, NO es su puesto habitual</option>
-                        <option value="2">2 - Formado, es su puesto habitual</option>
+                        <option value="1">1 - En Formación</option>
+                        <option value="2">2 - Formado</option>
                         <option value="3">3 - Experto</option>
-                        <option value="4">4 - En Formación</option>
                     </select><br><br>
                     <button type="submit" class="button-pop" style="font-size: 18px; padding: 10px 30px;">ACTUALIZAR <i class="fa fa-refresh" aria-hidden="true"></i></button>
                 </div>
@@ -458,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: ['Formaciones', 'Expertos', 'Formados'],
             datasets: [{
                 label: 'Cantidad total',
-                data: [{{ total_count_4 }}, {{ total_count_3 }}, {{ total_count_1_2 }}],
+                data: [{{ total_count_formacion }}, {{ total_count_experto }}, {{ total_count_formado }}],
                 backgroundColor: [
                     'rgba(75, 192, 192, 0.6)', // verde agua
                     'rgba(255, 206, 86, 0.6)', // amarillo

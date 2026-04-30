@@ -225,11 +225,10 @@ No renombrar estas claves sin migracion de datos y ajuste total de vistas/templa
 - `OPI` unica en `nuevas_opis` y `opis`.
 - Semantica de niveles en matriz:
   - 0 sin formacion
-  - 1 formado (no habitual)
-  - 2 formado (habitual)
+  - 1 en formacion
+  - 2 formado
   - 3 experto
-  - 4 en formacion
-- Al actualizar matriz, para nivel 4 se crea entrada en `completa` si no existe.
+- Al actualizar matriz, para nivel 1 se crea entrada en `completa` si no existe.
 
 ## 7) Riesgos de datos a vigilar
 
