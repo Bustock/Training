@@ -79,17 +79,23 @@
 
     <h1>
     <div class="popup">
-        <p>🛠️ Generando PDF de formación.</p>
-        <p>Por favor, espera un momento,</p>
-        <p>se te redirigirá automáticamente...</p>
+        <p>{{ mensaje_titulo|default:"🛠️ Generando PDF de formación." }}</p>
+        <p>{{ mensaje_subtitulo|default:"Por favor, espera un momento," }}</p>
+        <p>{{ mensaje_detalle|default:"se te redirigirá automáticamente..." }}</p>
         <div class="spinner"></div> <!-- 🎉 Aquí va el reloj giratorio -->
     </div>
     </h1>
 
-    <form id="pdfForm" action="{% url 'generar_pdf' %}" method="post" style="display:none;">
+    <form id="pdfForm" action="{% if form_action %}{{ form_action }}{% else %}{% url 'generar_pdf' %}{% endif %}" method="post" style="display:none;">
         {% csrf_token %}
-        <input type="hidden" name="operario" value="{{ operario }}">
-        <input type="hidden" name="puesto" value="{{ puesto }}">
+        {% if hidden_fields %}
+            {% for key, value in hidden_fields.items %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+        {% else %}
+            <input type="hidden" name="operario" value="{{ operario }}">
+            <input type="hidden" name="puesto" value="{{ puesto }}">
+        {% endif %}
     </form>
 
     <script>

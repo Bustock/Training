@@ -156,7 +156,45 @@ class OpiForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        opis_choices = [(opi.OPI, opi.OPI) for opi in opis.objects.all()]
+        opis_choices = []
+        operarios = list(polivalencia.objects.all())
+
+        for opi_obj in opis.objects.all():
+            formados_dict = opi_obj.formados if isinstance(opi_obj.formados, dict) else {}
+            firmas_dict = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
+
+            operarios_formados = {nombre for nombre in formados_dict.keys() if nombre}
+            operarios_firmados = {nombre for nombre in firmas_dict.keys() if nombre}
+
+            secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
+
+            pendientes_por_firmar = operarios_formados - operarios_firmados
+            pendientes_por_formar = set()
+
+            for operario in operarios:
+                if operario.OPERARIO in operarios_formados:
+                    continue
+
+                for seccion in secciones:
+                    if hasattr(operario, seccion):
+                        field_value = getattr(operario, seccion)
+                        if isinstance(field_value, int) and field_value not in [0, 1]:
+                            pendientes_por_formar.add(operario.OPERARIO)
+                            break
+
+            firmas_registradas = operarios_formados.intersection(operarios_firmados)
+            total_pendientes = len(pendientes_por_firmar) + len(pendientes_por_formar)
+
+            if not firmas_registradas:
+                estado = 'SIN INICIAR'
+            elif total_pendientes == 0:
+                estado = 'COMPLETA'
+            else:
+                estado = f'FALTAN {total_pendientes} FIRMAS'
+
+            etiqueta = f'{opi_obj.OPI} | {estado}'
+            opis_choices.append((opi_obj.OPI, etiqueta))
+
         self.fields['opi'].choices = [('', 'Seleccione una OPI')] + opis_choices
 
 class CompletaForm(forms.Form):

@@ -7,3 +7,6 @@ class FormacionConfig(AppConfig):
 
     def ready(self):
         import formacion.signals  # noqa: F401
+        from formacion.scheduler import iniciar_scheduler_polivalencia
+
+        iniciar_scheduler_polivalencia()

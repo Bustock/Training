@@ -1,0 +1,282 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FORMACIONES SRCSE</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+            background-color: #f5f7fa;
+            background-image: url("{% static 'fondo_esquina.png' %}");
+            background-size: 200px 60px;
+            background-repeat: no-repeat;
+            background-position: 10px 10px;
+            background-attachment: fixed;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .wrapper {
+            display: flex;
+            justify-content: center;
+        }
+
+        form {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            width: min(950px, 95vw);
+        }
+
+        h1, h2, h3, label, p {
+            color: #ffffff;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .top-info {
+            margin-bottom: 16px;
+        }
+
+        .fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .fields input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            box-sizing: border-box;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .signature-pad-wrapper {
+            border: 1px solid #111827;
+            background: #ffffff;
+            border-radius: 6px;
+            height: 220px;
+            width: 100%;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        button, .link-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .clear-btn {
+            background: #f59e0b;
+            color: #111827;
+            margin-top: 10px;
+        }
+
+        .submit-btn {
+            background: #16a34a;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .back-btn {
+            background: #1d4ed8;
+            color: #ffffff;
+        }
+
+        .pdf-btn {
+            background: #0ea5e9;
+            color: #ffffff;
+        }
+
+        @media (max-width: 900px) {
+            .fields,
+            .signatures {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="{% url 'inicio' %}" style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        display: block;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background: rgba(255,255,255,0.7);
+        padding: 2px;
+        transition: box-shadow 0.2s;
+    " title="Ir al inicio">
+        <img src="{% static 'fondo_esquina.png' %}" alt="inicio" style="width: 200px; height: 60px; display: block;">
+    </a>
+
+    <div class="wrapper">
+        <form method="post" action="{% url 'firma_formacion_inicial' %}" id="firma-inicial-form">
+            {% csrf_token %}
+            <input type="hidden" name="operario" value="{{ operario }}">
+            <input type="hidden" name="puesto" value="{{ puesto }}">
+            <input type="hidden" id="firma_alumno" name="firma_alumno">
+            <input type="hidden" id="firma_formador" name="firma_formador">
+
+            <div class="top-info">
+                <h1>ACTA INICIAL DE FORMACION</h1>
+                <p><strong>Operario:</strong> {{ operario }}</p>
+                <p><strong>Puesto:</strong> {{ puesto_traducido }}</p>
+            </div>
+
+            <div class="fields">
+                <div>
+                    <label for="dni"><strong>DNI del operario</strong></label>
+                    <input type="text" id="dni" name="dni" value="{{ dni }}" pattern="\d{8}[A-Za-z]" title="Debe contener 8 digitos y una letra" required>
+                </div>
+                <div>
+                    <label for="formador"><strong>Nombre del formador</strong></label>
+                    <input type="text" id="formador" name="formador" value="{{ formador }}" required>
+                </div>
+            </div>
+
+            <div class="signatures">
+                <div class="card">
+                    <h3>Firma del operario</h3>
+                    <div class="signature-pad-wrapper">
+                        <canvas id="signature-pad-alumno"></canvas>
+                    </div>
+                    <button type="button" class="clear-btn" id="clear-alumno">Limpiar firma operario</button>
+                </div>
+
+                <div class="card">
+                    <h3>Firma del formador</h3>
+                    <div class="signature-pad-wrapper">
+                        <canvas id="signature-pad-formador"></canvas>
+                    </div>
+                    <button type="button" class="clear-btn" id="clear-formador">Limpiar firma formador</button>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="submit-btn">Guardar y generar PDF inicial</button>
+                <a href="{% url 'editar_matriz' %}?OPERARIO={{ operario }}&PUESTO={{ puesto }}" class="link-btn back-btn">Volver a matriz</a>
+                {% if pdf_inicial_disponible %}
+                    <a href="{% url 'ver_pdf_formacion_inicial' operario puesto %}" target="_blank" rel="noopener noreferrer" class="link-btn pdf-btn">Ver PDF actual</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvasAlumno = document.getElementById('signature-pad-alumno');
+            const canvasFormador = document.getElementById('signature-pad-formador');
+
+            const signaturePadAlumno = new SignaturePad(canvasAlumno);
+            const signaturePadFormador = new SignaturePad(canvasFormador);
+
+            const firmaAlumnoInput = document.getElementById('firma_alumno');
+            const firmaFormadorInput = document.getElementById('firma_formador');
+
+            function resizeOneCanvas(canvas, signaturePad) {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                const data = signaturePad.toData();
+
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext('2d').scale(ratio, ratio);
+
+                signaturePad.clear();
+                signaturePad.fromData(data);
+            }
+
+            function resizeBoth() {
+                resizeOneCanvas(canvasAlumno, signaturePadAlumno);
+                resizeOneCanvas(canvasFormador, signaturePadFormador);
+            }
+
+            window.addEventListener('resize', resizeBoth);
+            resizeBoth();
+
+            document.getElementById('clear-alumno').addEventListener('click', function() {
+                signaturePadAlumno.clear();
+            });
+
+            document.getElementById('clear-formador').addEventListener('click', function() {
+                signaturePadFormador.clear();
+            });
+
+            document.getElementById('firma-inicial-form').addEventListener('submit', function(event) {
+                if (signaturePadAlumno.isEmpty() || signaturePadFormador.isEmpty()) {
+                    alert('Debes registrar la firma del operario y la del formador.');
+                    event.preventDefault();
+                    return;
+                }
+
+                firmaAlumnoInput.value = signaturePadAlumno.toDataURL('image/png');
+                firmaFormadorInput.value = signaturePadFormador.toDataURL('image/png');
+            });
+        });
+    </script>
+
+    <script>
+        const tiempoInactividad = 15 * 60 * 1000;
+        let temporizadorInactividad;
+
+        function reiniciarTemporizador() {
+            clearTimeout(temporizadorInactividad);
+            temporizadorInactividad = setTimeout(cerrarSesionPorInactividad, tiempoInactividad);
+        }
+
+        function cerrarSesionPorInactividad() {
+            fetch("{% url 'timeout' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            }).then(() => {
+                window.location.href = "{% url 'timeout' %}";
+            });
+        }
+
+        document.addEventListener('mousemove', reiniciarTemporizador);
+        document.addEventListener('keydown', reiniciarTemporizador);
+        document.addEventListener('click', reiniciarTemporizador);
+
+        reiniciarTemporizador();
+    </script>
+</body>
+</html>

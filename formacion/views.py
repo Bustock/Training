@@ -32,7 +32,7 @@ from PyPDF2 import PdfMerger
 import shutil
 
 
-# BASE_URL = r"C:\sonova\formaciones"
+#BASE_URL = r"C:\Git\Training"
 #BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
 BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")
 
@@ -61,6 +61,82 @@ def json_error_detallado(error, fase, puesto_seleccionado=None, status=500):
         'ruta_esperada': ruta,
         'detalle_error': str(error),
     }, status=status)
+
+
+def _obtener_datos_firma_formador_opi(registro_opi):
+    firmas = registro_opi.firmas if registro_opi and isinstance(registro_opi.firmas, dict) else {}
+    formador = (firmas.get('formador') or '').strip().upper()
+    firma_formador_path = (firmas.get('firma_formador') or '').strip()
+
+    if firma_formador_path and not os.path.exists(firma_formador_path):
+        firmas.pop('formador', None)
+        firmas.pop('firma_formador', None)
+        registro_opi.firmas = firmas
+        registro_opi.save(update_fields=['firmas'])
+        formador = ''
+        firma_formador_path = ''
+
+    return firmas, formador, firma_formador_path
+
+
+def _limpiar_firma_formador_opi(registro_opi):
+    if not registro_opi:
+        return
+
+    firmas = registro_opi.firmas if isinstance(registro_opi.firmas, dict) else {}
+    firma_formador_path = firmas.get('firma_formador')
+    if firma_formador_path and os.path.exists(firma_formador_path):
+        os.remove(firma_formador_path)
+
+    directorio_formador = os.path.dirname(firma_formador_path) if firma_formador_path else ''
+    if directorio_formador and os.path.isdir(directorio_formador):
+        try:
+            if not os.listdir(directorio_formador):
+                os.rmdir(directorio_formador)
+        except OSError:
+            pass
+
+    firmas.pop('formador', None)
+    firmas.pop('firma_formador', None)
+    registro_opi.firmas = firmas
+    registro_opi.save(update_fields=['firmas', 'modificado_por', 'modificado_en'])
+
+
+def _operarios_objetivo_opi(registro_opi):
+    if not registro_opi:
+        return set()
+
+    secciones = [
+        registro_opi.SECCION1,
+        registro_opi.SECCION2,
+        registro_opi.SECCION3,
+        registro_opi.SECCION4,
+        registro_opi.SECCION5,
+        registro_opi.SECCION6,
+        registro_opi.SECCION7,
+    ]
+
+    operarios_objetivo = set()
+    for tecnico in polivalencia.objects.all():
+        for seccion in secciones:
+            if not seccion or not hasattr(tecnico, seccion):
+                continue
+            valor = getattr(tecnico, seccion)
+            if isinstance(valor, int) and valor not in [0, 1]:
+                operarios_objetivo.add(tecnico.OPERARIO)
+                break
+
+    return operarios_objetivo
+
+
+def _opi_firmas_operarios_completas(registro_opi):
+    operarios_objetivo = _operarios_objetivo_opi(registro_opi)
+    if not operarios_objetivo:
+        return False
+
+    firmas_dict = registro_opi.firmas if isinstance(registro_opi.firmas, dict) else {}
+    operarios_firmados = {nombre for nombre in operarios_objetivo if nombre in firmas_dict}
+    return operarios_objetivo.issubset(operarios_firmados)
 
 
 opi_a_mod = []
@@ -490,8 +566,12 @@ def formacion_opis(request):
 
             puesto_a_buscar = opis.objects.filter(filtro)
 
-            # Agregar las OPIs encontradas en opis_info a puesto_info
-            puesto_info.extend(opi.OPI for opi in puesto_a_buscar)
+            # Agregar cada OPI con su estado de firmas para mostrarlo en la vista.
+            for opi in puesto_a_buscar:
+                puesto_info.append({
+                    'nombre': opi.OPI,
+                    'firmas_completas': _opi_firmas_operarios_completas(opi)
+                })
 
 
     return render(request, 'form_opis.html', {
@@ -813,10 +893,78 @@ def guardar_fecha(request):
 @login_required
 def introducir_firma(request):
     global opi_a_mod
-    opi = opi_a_mod  # ID de la OPI que se modificará
+    opi = (request.GET.get('opi') or getattr(opi_a_mod, 'OPI', opi_a_mod) or '').strip()
     operario = request.GET.get('operario')  # Nombre del operario
 
-    return render(request, 'introducir_firma.html', {'opi': opi, 'operario': operario})
+    if not opi:
+        messages.error(request, 'No se ha podido identificar la OPI para registrar la firma del operario.')
+        return redirect('formacion_opis')
+
+    opi_obj = get_object_or_404(opis, OPI=opi)
+    _, formador, firma_formador_path = _obtener_datos_firma_formador_opi(opi_obj)
+    if not formador or not firma_formador_path:
+        messages.error(request, 'Primero debes guardar el nombre y la firma del formador para esta OPI.')
+        return HttpResponseRedirect(f"{reverse('firmar_formador_opi')}?{urlencode({'opi': opi})}")
+
+    return render(request, 'introducir_firma.html', {
+        'opi': opi,
+        'operario': operario,
+        'formador': formador,
+    })
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def firmar_formador_opi(request):
+    opi_nombre = (request.GET.get('opi') or request.POST.get('opi') or '').strip()
+
+    if not opi_nombre:
+        messages.error(request, 'Debes indicar una OPI para firmar al formador.')
+        return redirect('formacion_opis')
+
+    registro = get_object_or_404(opis, OPI=opi_nombre)
+
+    if request.method == 'GET':
+        firmas, formador_guardado, _ = _obtener_datos_firma_formador_opi(registro)
+        return render(request, 'firmar_formador_opi.html', {
+            'opi': opi_nombre,
+            'formador': formador_guardado,
+            'firma_formador_guardada': bool(firmas.get('firma_formador')),
+        })
+
+    if request.method == 'POST':
+        formador = (request.POST.get('formador') or '').strip().upper()
+        imagen_base64 = request.POST.get('imagen')
+
+        if not formador or not imagen_base64:
+            messages.error(request, 'Debes completar el nombre del formador y su firma.')
+            return HttpResponseRedirect(f"{reverse('firmar_formador_opi')}?{urlencode({'opi': opi_nombre})}")
+
+        firmas, _, firma_formador_path_actual = _obtener_datos_firma_formador_opi(registro)
+        if firma_formador_path_actual and os.path.exists(firma_formador_path_actual):
+            os.remove(firma_formador_path_actual)
+
+        directorio_firma = shared_media_path('firmas_opis', opi_nombre, 'formador')
+        os.makedirs(directorio_firma, exist_ok=True)
+        firma_formador_path = os.path.join(directorio_firma, 'firma_formador.png')
+
+        try:
+            _guardar_firma_base64(imagen_base64, firma_formador_path)
+        except ValueError:
+            messages.error(request, 'No se ha podido guardar la firma del formador.')
+            return HttpResponseRedirect(f"{reverse('firmar_formador_opi')}?{urlencode({'opi': opi_nombre})}")
+
+        firmas['formador'] = formador
+        firmas['firma_formador'] = firma_formador_path
+        registro.firmas = firmas
+        registro.modificado_por = request.user
+        registro.save()
+
+        messages.success(request, f'Firma del formador guardada para la OPI {opi_nombre}.')
+        return redirect(f"{reverse('formacion_opis')}?{urlencode({'opi': opi_nombre})}")
+
+    messages.error(request, 'Metodo no permitido.')
+    return redirect('formacion_opis')
 
 def convertir_docx_a_pdf(docx_path, pdf_path):
     import subprocess
@@ -842,21 +990,144 @@ def convertir_docx_a_pdf(docx_path, pdf_path):
     except Exception as e:
         print(f"Error al convertir a PDF: {e}")
 
+
+def _normalizar_nombre_archivo(valor):
+    """Normaliza un valor para usarlo en nombres de archivo sin caracteres conflictivos."""
+    limpio = re.sub(r'[^A-Za-z0-9._-]+', '_', str(valor or '').strip())
+    return limpio.strip('_') or 'documento'
+
+
+def _reemplazar_texto_en_parrafo(paragraph, replacements):
+    texto_original = ''.join(run.text for run in paragraph.runs)
+    texto_modificado = texto_original
+
+    for key, value in replacements.items():
+        texto_modificado = texto_modificado.replace(f'{{{{ {key} }}}}', str(value))
+
+    if texto_modificado != texto_original:
+        for run in paragraph.runs:
+            run.text = ''
+        if paragraph.runs:
+            paragraph.runs[0].text = texto_modificado
+        else:
+            paragraph.add_run(texto_modificado)
+
+
+def _insertar_imagen_placeholder(doc, placeholder, image_source, width=2.2):
+    token_con_espacios = f'{{{{ {placeholder} }}}}'
+    token_sin_espacios = f'{{{{{placeholder}}}}}'
+
+    def _imagen_disponible(source):
+        if isinstance(source, (str, os.PathLike)):
+            return os.path.exists(source)
+        if hasattr(source, 'read'):
+            return True
+        return False
+
+    def insertar(paragraph):
+        text = paragraph.text
+        token_detectado = None
+        if token_con_espacios in text:
+            token_detectado = token_con_espacios
+        elif token_sin_espacios in text:
+            token_detectado = token_sin_espacios
+
+        if not token_detectado or not _imagen_disponible(image_source):
+            return
+
+        partes = text.split(token_detectado, 1)
+        paragraph.clear()
+
+        if partes[0]:
+            paragraph.add_run(partes[0])
+
+        run = paragraph.add_run()
+        if hasattr(image_source, 'seek'):
+            image_source.seek(0)
+        run.add_picture(image_source, width=Inches(width))
+
+        if len(partes) > 1 and partes[1]:
+            paragraph.add_run(partes[1])
+
+    for paragraph in doc.paragraphs:
+        insertar(paragraph)
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    insertar(paragraph)
+
+
+def _guardar_firma_base64(imagen_base64, output_path):
+    if not imagen_base64:
+        raise ValueError('No se ha recibido la firma en formato base64.')
+
+    try:
+        _, imgstr = imagen_base64.split(';base64,')
+    except ValueError as exc:
+        raise ValueError('Formato de firma inválido.') from exc
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'wb') as f:
+        f.write(base64.b64decode(imgstr))
+
+
+def _obtener_opis_relacionadas(puesto):
+    filtros = (
+        Q(SECCION1=puesto) |
+        Q(SECCION2=puesto) |
+        Q(SECCION3=puesto) |
+        Q(SECCION4=puesto) |
+        Q(SECCION5=puesto) |
+        Q(SECCION6=puesto) |
+        Q(SECCION7=puesto)
+    )
+    opi_ids = list(opis.objects.filter(filtros).order_by('OPI').values_list('OPI', flat=True).distinct())
+    return ', '.join(opi_ids) if opi_ids else 'N/A'
+
+
+def _calcular_tiempo_desde_acta_inicial(firmas, fecha_hora_actual):
+    marca_inicial = firmas.get('fecha_hora_inicial')
+    if not marca_inicial:
+        return 'N/D'
+
+    try:
+        fecha_hora_inicial = datetime.fromisoformat(str(marca_inicial))
+    except (TypeError, ValueError):
+        return 'N/D'
+
+    if timezone.is_naive(fecha_hora_inicial):
+        fecha_hora_inicial = timezone.make_aware(fecha_hora_inicial, timezone.get_current_timezone())
+
+    fecha_hora_inicial = timezone.localtime(fecha_hora_inicial)
+    dias_transcurridos = max((fecha_hora_actual.date() - fecha_hora_inicial.date()).days, 0)
+    return f"{dias_transcurridos} día" if dias_transcurridos == 1 else f"{dias_transcurridos} días"
+
 @groups_required('admin', 'formacion', 'tecnicos')
 @login_required
 def subir_firma(request):
     global opi_a_mod
     if request.method == "POST":
-        opi_id = opis.objects.filter(OPI=opi_a_mod).first()
-        opi_id = opi_id.id
-        info_formacion = opis.objects.get(id=opi_id).INFO
+        opi_nombre = (request.POST.get('opi') or getattr(opi_a_mod, 'OPI', opi_a_mod) or '').strip()
+        if not opi_nombre:
+            messages.add_message(request, messages.ERROR, 'No se ha podido identificar la OPI asociada a la firma.')
+            return redirect('formacion_opis')
+
+        opi_obj = get_object_or_404(opis, OPI=opi_nombre)
+        opi_id = opi_obj.id
+        info_formacion = opi_obj.INFO
         operario = request.POST.get("operario")
         imagen_base64 = request.POST.get("imagen")
         dni = request.POST.get("dni").strip().upper() 
-        formador = (request.POST.get("formador") or "").strip().upper()
 
         # Buscar la OPI a modificar
         opi = get_object_or_404(opis, id=opi_id)
+        firmas, formador, firma_formador_path = _obtener_datos_firma_formador_opi(opi)
+
+        if not formador or not firma_formador_path:
+            messages.add_message(request, messages.ERROR, 'No hay una firma de formador guardada para esta OPI. Debes registrarla de nuevo.')
+            return HttpResponseRedirect(f"{reverse('firmar_formador_opi')}?{urlencode({'opi': opi_nombre})}")
 
         # Obtener la fecha del diccionario formados
         fecha = opi.formados.get(operario, '')
@@ -907,7 +1178,7 @@ def subir_firma(request):
             # Diccionario con los valores a reemplazar
             replacements = {
                 '{{fecha}}': fecha,
-                '{{opi_a_mod}}': opi_a_mod,
+                '{{opi_a_mod}}': opi_nombre,
                 '{{hora}}': hora,
                 '{{info_formacion}}': info_formacion,
                 '{{operario}}': operario,
@@ -926,11 +1197,14 @@ def subir_firma(request):
                         for paragraph in cell.paragraphs:
                             process_paragraph(paragraph, replacements, img_stream)
 
+            # Insertar la firma del formador soportando placeholders con/sin espacios.
+            _insertar_imagen_placeholder(doc, 'firma_formador', firma_formador_path, width=1.8)
+
             # Guardar el documento modificado
             # output_directory = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', str(opi_a_mod))
-            output_directory = shared_media_path('firmas_opis', str(opi_a_mod))
+            output_directory = shared_media_path('firmas_opis', opi_nombre)
             os.makedirs(output_directory, exist_ok=True)
-            output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_a_mod}.docx")
+            output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_nombre}.docx")
             doc.save(output_path) # Guardar el archivo .docx
             pdf_output_path = output_path.replace(".docx", ".pdf")
             convertir_docx_a_pdf(output_path, pdf_output_path) # Convertir a PDF
@@ -945,21 +1219,24 @@ def subir_firma(request):
             opi.modificado_por = request.user
             opi.save()  # Guardar cambios en la BBDD
 
-            messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_a_mod}. Hasta la próxima!')
+            if _opi_firmas_operarios_completas(opi):
+                _limpiar_firma_formador_opi(opi)
+
+            messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_nombre}. Hasta la próxima!')
         except ValueError as e:
             print(f"Error al decodificar la imagen base64: {e}")
             messages.add_message(request, messages.ERROR, 'Error al guardar la firma. Por favor, inténtalo de nuevo.')
         if request.user.groups.filter(name='tecnicos').exists():
             return redirect('logout_message')
         else:
-            return redirect(f"{reverse('formacion_opis')}?opi={opi_a_mod}")  # Redirigir a la página anterior
+            return redirect(f"{reverse('formacion_opis')}?{urlencode({'opi': opi_nombre})}")  # Redirigir a la página anterior
 
 @groups_required('admin', 'formacion')
 @login_required
 def ver_pdf_opi(request, opi, nombre):
     #Vista para servir el PDF como descarga
     # pdf_path = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
-    pdf_path = shared_media_path('firmas_opis', opi, f"{nombre}_acta_formacion_{opi_a_mod}.pdf")
+    pdf_path = shared_media_path('firmas_opis', opi, f"{nombre}_acta_formacion_{opi}.pdf")
     
     if not os.path.exists(pdf_path):
         raise Http404("El archivo no existe")
@@ -1725,7 +2002,7 @@ def guardar_firma(request):
 
    
 def generar_pdf(request):
-    fecha_hora = datetime.now()
+    fecha_hora = timezone.localtime(timezone.now())
     fecha = fecha_hora.strftime("%d-%b-%Y").upper()
     hora = fecha_hora.strftime("%H:%M")
     global puestos_dict
@@ -1759,7 +2036,8 @@ def generar_pdf(request):
         messages.add_message(request, messages.ERROR, "No se encontró la entrada correspondiente.")
         return redirect('formacion_completa')  # Redirigir a algún lugar si no se encuentra
 
-    firmas = filtro.firmas  # El diccionario con las firmas y datos
+    firmas = filtro.firmas if isinstance(filtro.firmas, dict) else {}
+    tiempo = _calcular_tiempo_desde_acta_inicial(firmas, fecha_hora)
 
     # Definir las plantillas .docx para cada tipo de PDF
     plantillas = {
@@ -1808,6 +2086,7 @@ def generar_pdf(request):
         replacements = {
             'fecha': fecha,
             'hora': hora,
+            'tiempo': tiempo,
             'operario': operario_nombre,
             'dni': firmas.get('dni'),
             'puesto': puesto_traducido,
@@ -1925,6 +2204,21 @@ def generar_pdf(request):
     shutil.rmtree(shared_media_path('form_completa', 'firmas', operario_nombre, puesto_seleccionado))
     
     pdf = completa.objects.get(OPERARIO=operario_nombre, PUESTO=puesto_seleccionado)
+    firmas_pdf = pdf.firmas if isinstance(pdf.firmas, dict) else {}
+
+    # Limpiar posibles firmas del acta inicial (compatibilidad con datos previos).
+    for key_firma_inicial in ['firma_alumno_inicial', 'firma_formador_inicial']:
+        firma_inicial_path = firmas_pdf.get(key_firma_inicial)
+        if firma_inicial_path and os.path.exists(firma_inicial_path):
+            os.remove(firma_inicial_path)
+        firmas_pdf.pop(key_firma_inicial, None)
+
+    pdf_inicial_path = firmas_pdf.get('pdf_inicial')
+    if pdf_inicial_path and os.path.exists(pdf_inicial_path):
+        os.remove(pdf_inicial_path)
+    firmas_pdf.pop('pdf_inicial', None)
+
+    pdf.firmas = firmas_pdf
     pdf.firmas['PDF'] = pdf_final_path
     pdf.creado_por = request.user
     pdf.save()
@@ -1958,6 +2252,224 @@ def ver_pdf_form(request, nombre, puesto):
     response = FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
     return response
 
+
+@groups_required('admin', 'formacion')
+@login_required
+def firma_formacion_inicial(request):
+    global puestos_dict
+
+    if request.method == 'GET':
+        operario = (request.GET.get('operario') or '').strip().upper()
+        puesto = (request.GET.get('puesto') or '').strip()
+
+        if not operario or not puesto:
+            messages.error(request, 'Debes indicar operario y puesto para registrar el acta inicial.')
+            return redirect('editar_matriz')
+
+        puesto_traducido = puestos_dict.get(puesto, puesto)
+        registro = completa.objects.filter(OPERARIO=operario, PUESTO=puesto).first()
+        firmas = registro.firmas if registro and isinstance(registro.firmas, dict) else {}
+        pdf_inicial_path = firmas.get('pdf_inicial')
+        pdf_inicial_disponible = bool(pdf_inicial_path and os.path.exists(pdf_inicial_path))
+
+        return render(request, 'firma_formacion_inicial.html', {
+            'operario': operario,
+            'puesto': puesto,
+            'puesto_traducido': puesto_traducido,
+            'dni': firmas.get('dni_inicial', ''),
+            'formador': firmas.get('formador_inicial', ''),
+            'pdf_inicial_disponible': pdf_inicial_disponible,
+        })
+
+    if request.method == 'POST':
+        operario = (request.POST.get('operario') or '').strip().upper()
+        puesto = (request.POST.get('puesto') or '').strip()
+        dni = (request.POST.get('dni') or '').strip().upper()
+        formador = (request.POST.get('formador') or '').strip().upper()
+        firma_alumno_b64 = request.POST.get('firma_alumno')
+        firma_formador_b64 = request.POST.get('firma_formador')
+
+        if not operario or not puesto:
+            messages.error(request, 'Datos incompletos para generar el acta inicial.')
+            return redirect('editar_matriz')
+
+        base_url = reverse('firma_formacion_inicial')
+        query_string = urlencode({'operario': operario, 'puesto': puesto})
+        url_reintento = f"{base_url}?{query_string}"
+
+        if not dni or not formador or not firma_alumno_b64 or not firma_formador_b64:
+            messages.error(request, 'Debes completar DNI, formador y ambas firmas para generar el PDF inicial.')
+            return HttpResponseRedirect(url_reintento)
+
+        return render(request, 'generando_pdf.html', {
+            'form_action': reverse('generar_pdf_formacion_inicial'),
+            'mensaje_titulo': 'Generando acta de formacion inicial.',
+            'mensaje_subtitulo': 'Por favor, espera un momento,',
+            'mensaje_detalle': 'se te redirigira automaticamente...',
+            'hidden_fields': {
+                'operario': operario,
+                'puesto': puesto,
+                'dni': dni,
+                'formador': formador,
+                'firma_alumno': firma_alumno_b64,
+                'firma_formador': firma_formador_b64,
+            }
+        })
+
+    messages.error(request, 'Metodo no permitido.')
+    return redirect('editar_matriz')
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def generar_pdf_formacion_inicial(request):
+    global puestos_dict
+
+    if request.method != 'POST':
+        messages.error(request, 'Metodo no permitido.')
+        return redirect('editar_matriz')
+
+    operario = (request.POST.get('operario') or '').strip().upper()
+    puesto = (request.POST.get('puesto') or '').strip()
+    dni = (request.POST.get('dni') or '').strip().upper()
+    formador = (request.POST.get('formador') or '').strip().upper()
+    firma_alumno_b64 = request.POST.get('firma_alumno')
+    firma_formador_b64 = request.POST.get('firma_formador')
+
+    if not operario or not puesto:
+        messages.error(request, 'Datos incompletos para generar el acta inicial.')
+        return redirect('editar_matriz')
+
+    base_url = reverse('firma_formacion_inicial')
+    query_string = urlencode({'operario': operario, 'puesto': puesto})
+    url_reintento = f"{base_url}?{query_string}"
+
+    if not dni or not formador or not firma_alumno_b64 or not firma_formador_b64:
+        messages.error(request, 'Debes completar DNI, formador y ambas firmas para generar el PDF inicial.')
+        return HttpResponseRedirect(url_reintento)
+
+    plantilla_path = shared_plantillas_path('acta_formacion_inicial.docx')
+    if not os.path.exists(plantilla_path):
+        messages.error(request, 'No se encuentra la plantilla acta_formacion_inicial.docx.')
+        return HttpResponseRedirect(url_reintento)
+
+    puesto_traducido = puestos_dict.get(puesto, puesto)
+    fecha_hora = timezone.localtime(timezone.now())
+
+    firmas_dir = shared_media_path('form_completa', 'firmas_iniciales', operario, puesto)
+    firma_alumno_path = os.path.join(firmas_dir, 'firma_alumno_inicial.png')
+    firma_formador_path = os.path.join(firmas_dir, 'firma_formador_inicial.png')
+
+    output_directory = shared_media_path('documentos', operario, puesto_traducido)
+    os.makedirs(output_directory, exist_ok=True)
+    base_filename = _normalizar_nombre_archivo(f'{operario}_acta_formacion_inicial')
+    docx_output_path = os.path.join(output_directory, f'{base_filename}.docx')
+    pdf_output_path = os.path.join(output_directory, f'{base_filename}.pdf')
+
+    try:
+        _guardar_firma_base64(firma_alumno_b64, firma_alumno_path)
+        _guardar_firma_base64(firma_formador_b64, firma_formador_path)
+
+        doc = Document(plantilla_path)
+        replacements = {
+            'fecha': fecha_hora.strftime('%d-%b-%Y').upper(),
+            'hora': fecha_hora.strftime('%H:%M'),
+            'tiempo': fecha_hora.strftime('%H:%M'),
+            'puesto': puesto_traducido,
+            'formador': formador,
+            'operario': operario,
+            'dni': dni,
+            'opis': _obtener_opis_relacionadas(puesto),
+        }
+
+        for paragraph in doc.paragraphs:
+            _reemplazar_texto_en_parrafo(paragraph, replacements)
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        _reemplazar_texto_en_parrafo(paragraph, replacements)
+
+        _insertar_imagen_placeholder(doc, 'firma_alumno', firma_alumno_path)
+        _insertar_imagen_placeholder(doc, 'firma_formador', firma_formador_path)
+
+        doc.save(docx_output_path)
+        convertir_docx_a_pdf(docx_output_path, pdf_output_path)
+        if os.path.exists(docx_output_path):
+            os.remove(docx_output_path)
+
+        if not os.path.exists(pdf_output_path):
+            raise FileNotFoundError('No se pudo generar el PDF de acta inicial.')
+
+        # El acta inicial ya está generada: las firmas temporales no se conservan.
+        for firma_path in [firma_alumno_path, firma_formador_path]:
+            if os.path.exists(firma_path):
+                os.remove(firma_path)
+
+        if os.path.isdir(firmas_dir) and not os.listdir(firmas_dir):
+            os.rmdir(firmas_dir)
+
+        registro = completa.objects.filter(OPERARIO=operario, PUESTO=puesto).order_by('id').first()
+        created = False
+        if not registro:
+            registro = completa.objects.create(
+                OPERARIO=operario,
+                PUESTO=puesto,
+                TEORIA=False,
+                PRACTICA=False,
+                PRODUCTO=False,
+                firmas={},
+            )
+            created = True
+
+        firmas = registro.firmas if isinstance(registro.firmas, dict) else {}
+        firmas.update({
+            'dni_inicial': dni,
+            'formador_inicial': formador,
+            'fecha_inicial': fecha_hora.strftime('%d-%b-%Y').upper(),
+            'hora_inicial': fecha_hora.strftime('%H:%M'),
+            'fecha_hora_inicial': fecha_hora.isoformat(),
+            'pdf_inicial': pdf_output_path,
+        })
+
+        # Limpiar claves de firmas iniciales si existían de versiones anteriores.
+        firmas.pop('firma_alumno_inicial', None)
+        firmas.pop('firma_formador_inicial', None)
+
+        registro.firmas = firmas
+
+        if created:
+            registro.creado_por = request.user
+        registro.modificado_por = request.user
+        registro.save()
+
+        messages.success(request, 'Acta inicial generada correctamente.')
+        base_url = reverse('editar_matriz')
+        query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
+        return HttpResponseRedirect(f"{base_url}?{query_string}")
+
+    except Exception as e:
+        if os.path.exists(docx_output_path):
+            os.remove(docx_output_path)
+        messages.error(request, f'Error al generar el acta inicial: {e}')
+        return HttpResponseRedirect(url_reintento)
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def ver_pdf_formacion_inicial(request, nombre, puesto):
+    registro = completa.objects.filter(OPERARIO=nombre, PUESTO=puesto).first()
+
+    if not registro or not isinstance(registro.firmas, dict):
+        raise Http404('No existe acta inicial para este operario y puesto.')
+
+    pdf_path = registro.firmas.get('pdf_inicial')
+    if not pdf_path or not os.path.exists(pdf_path):
+        raise Http404('El PDF inicial no existe.')
+
+    return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+
 ####################################################################### DEF PARA LA MATRIZ DE POLIVALENCIA #######################################################################################
 
 @groups_required('admin', 'formacion')
@@ -1980,6 +2492,7 @@ def editar_matriz(request):
     total_count_formacion = 0
     total_count_experto = 0
     total_count_formado = 0
+    pdf_inicial_disponible = False
 
     if operario_form.is_valid():
         operario_seleccionado = operario_form.cleaned_data.get('OPERARIO')
@@ -2057,6 +2570,11 @@ def editar_matriz(request):
         if operario_obj:
             nivel = getattr(operario_obj, puesto_seleccionado)
 
+        registro = completa.objects.filter(OPERARIO=operario_seleccionado, PUESTO=puesto_seleccionado).first()
+        if registro and isinstance(registro.firmas, dict):
+            pdf_inicial = registro.firmas.get('pdf_inicial')
+            pdf_inicial_disponible = bool(pdf_inicial and os.path.exists(pdf_inicial))
+
     for campo in puestos_dict.keys():
         total_count_formacion += polivalencia.objects.filter(**{campo: 1}).count()
         total_count_experto += polivalencia.objects.filter(**{campo: 3}).count()
@@ -2081,6 +2599,7 @@ def editar_matriz(request):
         'total_count_formacion': total_count_formacion,
         'total_count_experto': total_count_experto,
         'total_count_formado': total_count_formado,
+        'pdf_inicial_disponible': pdf_inicial_disponible,
         'mensaje': messages.get_messages(request)
     })
 
@@ -2126,38 +2645,51 @@ def editar_tecnico(request):
         puesto = request.POST.get('puesto', '')
         puesto_traducido = puestos_dict.get(puesto, puesto)
         nuevo_valor = request.POST.get('nuevo_valor', '')
+        base_url = reverse('editar_matriz')
+        query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
+        url = f"{base_url}?{query_string}" if operario and puesto else base_url
+
         if operario and puesto and nuevo_valor.isdigit():
             tecnico = polivalencia.objects.filter(OPERARIO=operario).first()
             if tecnico and hasattr(tecnico, puesto):
                 setattr(tecnico, puesto, int(nuevo_valor))
                 tecnico.modificado_por = request.user
                 tecnico.save()
-                if nuevo_valor == '1':
-                    nueva_formacion = completa.objects.create(OPERARIO=operario, PUESTO=puesto, PRACTICA=False, PRODUCTO=False, TEORIA=False, firmas={})
-                    nueva_formacion.creado_por = request.user
-                    nueva_formacion.save()
-                messages.success(request, f"Nivel de '{operario}' en '{puesto_traducido}' actualizado correctamente.")
-                base_url = reverse('editar_matriz')  # nombre de la vista
-                query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
-                url = f"{base_url}?{query_string}"
 
+                if nuevo_valor == '1':
+                    formacion = completa.objects.filter(OPERARIO=operario, PUESTO=puesto).order_by('id').first()
+                    created = False
+                    if not formacion:
+                        formacion = completa.objects.create(
+                            OPERARIO=operario,
+                            PUESTO=puesto,
+                            PRACTICA=False,
+                            PRODUCTO=False,
+                            TEORIA=False,
+                            firmas={}
+                        )
+                        created = True
+                    if created:
+                        formacion.creado_por = request.user
+                    formacion.modificado_por = request.user
+                    formacion.save()
+
+                    messages.info(request, "Completa DNI y firmas para generar el acta inicial.")
+                    base_url = reverse('firma_formacion_inicial')
+                    query_string = urlencode({'operario': operario, 'puesto': puesto})
+                    return HttpResponseRedirect(f"{base_url}?{query_string}")
+
+                messages.success(request, f"Nivel de '{operario}' en '{puesto_traducido}' actualizado correctamente.")
                 return HttpResponseRedirect(url)
             else:
                 messages.error(request, "No se encontró el técnico o el campo.")
         else:
             messages.error(request, "Datos inválidos para actualizar.")
-            base_url = reverse('editar_matriz')  # nombre de la vista
-            query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
-            url = f"{base_url}?{query_string}"
 
         return HttpResponseRedirect(url)
     else:
         messages.error(request, "Método no permitido.")
-        base_url = reverse('editar_matriz')  # nombre de la vista
-        query_string = urlencode({'OPERARIO': operario, 'PUESTO': puesto})
-        url = f"{base_url}?{query_string}"
-
-        return HttpResponseRedirect(url)
+        return redirect('editar_matriz')
 
 @groups_required('admin', 'formacion')
 @login_required   

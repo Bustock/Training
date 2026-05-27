@@ -309,6 +309,21 @@
 
                         {% elif nivel == 1 %}
                             <label><h1 style="color: rgb(0, 153, 255);">Nivel 1: En Formación</h1></label><br>
+                            <h3>Acta de formación inicial:</h3>
+                            <a href="{% url 'firma_formacion_inicial' %}?operario={{ operarios_info.nombre }}&puesto={{ puesto_seleccionado }}" style="display: inline-block; background-color: #0d6efd; color: white; padding: 8px 14px; border-radius: 6px; text-decoration: none;">
+                                {% if pdf_inicial_disponible %}
+                                    Regenerar acta inicial
+                                {% else %}
+                                    Registrar DNI y firmas
+                                {% endif %}
+                            </a>
+                            {% if pdf_inicial_disponible %}
+                                <br><br>
+                                <a href="{% url 'ver_pdf_formacion_inicial' operarios_info.nombre puesto_seleccionado %}" target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-regular fa-eye"></i><br>
+                                    Ver PDF inicial
+                                </a>
+                            {% endif %}
                         {% elif nivel == 2 %}
                             <label><h1 style="color: rgb(255, 127, 0);">Nivel 2: Formado</h1></label><br>
                             <h3>Documento de formación:</h3>
