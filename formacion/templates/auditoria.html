@@ -22,6 +22,26 @@
             color: white;
             max-width: 95%;
         }
+        #form-buscador-auditoria {
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border-radius: 0;
+            max-width: none;
+            width: 100%;
+            margin: 0;
+            color: white;
+        }
+        #form-descarga-auditoria {
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border-radius: 0;
+            max-width: none;
+            width: 100%;
+            margin: 0;
+            color: white;
+        }
         .button-pop {
             transition: transform 0.2s ease;
         }
@@ -97,6 +117,26 @@
             background-color: #fff;
             color: #333;
         }
+        .select2-container--default .select2-results__option {
+            color: #111827;
+        }
+        .select2-container--default .select2-results__option--selected {
+            color: #111827;
+            background-color: #e5e7eb;
+        }
+        .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            color: #ffffff;
+            background-color: #5b8fe6;
+        }
+        .familia-select {
+            color: #6b7280;
+        }
+        .familia-select.familia-seleccionada {
+            color: #111827;
+        }
+        .familia-select option:not(:first-child) {
+            color: #111827;
+        }
         .horizontal-form {
             display: flex;
             flex-wrap: wrap;
@@ -120,6 +160,152 @@
             display: none;
             width: 100%;
             margin-top: 10px;
+        }
+        .buscador-auditoria-toggle {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 48px;
+            height: 48px;
+            border: none;
+            border-radius: 50%;
+            background: #0b82cb;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+            z-index: 1200;
+            font-size: 20px;
+        }
+        .descarga-auditoria-toggle {
+            position: fixed;
+            top: 10px;
+            right: 66px;
+            width: 48px;
+            height: 48px;
+            border: none;
+            border-radius: 50%;
+            background: #0b82cb;
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+            z-index: 1200;
+            font-size: 20px;
+        }
+        .buscador-auditoria-panel {
+            position: fixed;
+            top: 64px;
+            right: 10px;
+            width: 360px;
+            background: rgb(0, 132, 203);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+            padding: 16px;
+            z-index: 1199;
+            display: none;
+        }
+        .buscador-auditoria-panel.visible {
+            display: block;
+        }
+        .buscador-auditoria-panel label {
+            color: #ffffff;
+            font-size: 20px;
+            margin-bottom: 8px;
+            display: block;
+            text-align: center;
+        }
+        .buscador-auditoria-panel .select2-container {
+            width: 100% !important;
+        }
+        .buscador-auditoria-panel .select2-selection--single {
+            width: 100% !important;
+            box-sizing: border-box;
+        }
+        .buscador-auditoria-panel .select2-container--open,
+        .buscador-auditoria-panel .select2-dropdown {
+            z-index: 3500;
+        }
+        .buscador-auditoria-panel .select2-selection--single {
+            border: 1px solid #9ca3af !important;
+        }
+        .buscador-auditoria-row {
+            display: flex;
+            justify-content: center;
+        }
+        .buscador-auditoria-resultados {
+            position: fixed;
+            top: 258px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(1600px, calc(100vw - 24px));
+            max-height: calc(100vh - 280px);
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+            padding: 12px;
+            z-index: 1198;
+            display: none;
+        }
+        .buscador-auditoria-resultados.visible {
+            display: block;
+        }
+        .descarga-auditoria-panel {
+            position: fixed;
+            top: 64px;
+            right: 66px;
+            width: 300px;
+            background: rgb(0, 132, 203);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+            padding: 16px;
+            z-index: 1199;
+            display: none;
+        }
+        .descarga-auditoria-panel.visible {
+            display: block;
+        }
+        .descarga-auditoria-panel label {
+            color: #ffffff;
+            font-size: 20px;
+            margin-bottom: 8px;
+            display: block;
+            text-align: center;
+        }
+        .descarga-auditoria-panel input[type="date"] {
+            width: 100%;
+            border-radius: 6px;
+            border: none;
+            padding: 7px 10px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .descarga-auditoria-panel .boton-descargar {
+            width: 100%;
+            border: none;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #0b82cb;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 8px 12px;
+        }
+        @media (max-width: 900px) {
+            .buscador-auditoria-resultados {
+                width: calc(100vw - 12px);
+                left: 50%;
+                transform: translateX(-50%);
+                top: 258px;
+                max-height: calc(100vh - 270px);
+            }
+            .descarga-auditoria-panel {
+                right: 10px;
+                top: 64px;
+                width: min(300px, calc(100vw - 20px));
+            }
         }
     </style>
 </head>
@@ -148,146 +334,450 @@
         {% endfor %}
     </div>
 
-    <div style="display: flex; justify-content: center; margin-top: 20px;">
-        <form method="get" action="{% url 'auditoria_diaria' %}" style="max-width: 300px; width: 300px;">
-            {% csrf_token %}
-            {{ operario_form.as_p }}
-            <div style="display: flex; justify-content: center; margin-top: 10px;">
-                <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">FILTRAR <i class="fa fa-search" aria-hidden="true"></i></button>
-            </div>
-        </form><br>
-    </div>
-    
-    {% if operarios_info %}
-    <div style="display: flex; justify-content: center; margin-top: 20px;">
-        <form action="/registrar_auditoria" method="post">
-            {% csrf_token %}
-            
-            <div class="horizontal-form">
-                {% if operarios_info.nombre %}
-                <div>
-                    <input type="hidden" name="OPERARIO" value="{{ operarios_info.nombre }}" required>
-                </div>
-                {% endif %}
-                
-                <div>
-                    <label>SAP:</label>
-                    <input type="text" name="SAP" required>
-                </div>
-                <div>
-                    <label>Número de Serie:</label>
-                    <input type="text" name="NUM_SERIE" required>
-                </div>
-                <div>
-                    <label>Familia:</label>
-                    <input type="text" name="FAMILIA" required>
-                </div>
-                {% if operarios_info.campos_validos %}
-                <div>
-                    <label for="puesto">Puesto:</label>
-                    <select id="puesto" name="PUESTO" required>
-                        <option value="" disabled selected>Selecciona un campo</option>
-                        {% for field_name, field_display in operarios_info.campos_validos %}
-                            <option value="{{ field_name }}">{{ field_display }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-                <div>
-                    <label>Auditor:</label>
-                    <input type="text" name="AUDITOR" required>
-                </div>
-                
-                <div>
-                    <label>No Conformidad:</label>
-                    <input type="checkbox" id="noConformidad" name="NO_CONFORMIDAD">
-                </div>
-            </div>
+    <button id="toggle-buscador-auditoria" type="button" class="buscador-auditoria-toggle" title="Buscar auditorías por operario">
+        <i class="fa fa-search" aria-hidden="true"></i>
+    </button>
 
-            <div id="observaciones-campo">
-                <label>Observaciones:</label>
-                <textarea name="OBSERVACIONES" rows="5" style="width: 98.5%;"></textarea>
+    <button id="toggle-descarga-auditoria" type="button" class="descarga-auditoria-toggle" title="Descargar auditorías por rango de fechas">
+        <i class="fa fa-download" aria-hidden="true"></i>
+    </button>
+
+    <div id="panel-buscador-auditoria" class="buscador-auditoria-panel{% if operario_historial_seleccionado %} visible{% endif %}">
+        <form id="form-buscador-auditoria" method="get" action="{% url 'auditoria_diaria' %}">
+            <label for="operario-historial">Buscar Operario</label>
+            <div class="buscador-auditoria-row">
+                <select id="operario-historial" name="OPERARIO_HISTORIAL" style="width: 100%;">
+                    <option value="">Selecciona un operario</option>
+                    {% for op_hist in operarios_historial %}
+                        <option value="{{ op_hist }}" {% if op_hist == operario_historial_seleccionado %}selected{% endif %}>{{ op_hist }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <div id="panel-descarga-auditoria" class="descarga-auditoria-panel">
+        <form id="form-descarga-auditoria" method="get" action="{% url 'descargar_auditorias' %}">
+            <label>Descargar auditorías</label>
+            <label for="fecha-desde" style="font-size: 16px; margin-bottom: 4px; text-align: left;">Desde</label>
+            <input type="date" id="fecha-desde" name="desde" required>
+            <label for="fecha-hasta" style="font-size: 16px; margin-bottom: 4px; text-align: left;">Hasta</label>
+            <input type="date" id="fecha-hasta" name="hasta" required>
+            <button type="submit" class="boton-descargar">DESCARGAR</button>
+        </form>
+    </div>
+
+    {% if operario_historial_seleccionado %}
+    <div id="panel-resultados-auditoria" class="buscador-auditoria-resultados{% if operario_historial_seleccionado %} visible{% endif %}">
+        <h2 style="color: rgb(0, 132, 203); text-align: center; margin: 4px 0 12px 0;">Auditorías últimos 3 meses: {{ operario_historial_seleccionado }}</h2>
+        <div style="overflow-x: auto; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; background-color: white;">
+                <thead>
+                    <tr style="background-color: rgb(0, 132, 203); color: white;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Fecha</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">SAP</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Nº Serie</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Familia</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Puesto</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Auditor</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">No Conformidad</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aud in auditorias_recientes %}
+                    <tr style="{% if aud.NO_CONFORMIDAD %}background-color: #ffebee;{% else %}background-color: {% cycle '#f9f9f9' 'white' %};{% endif %}">
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.DIA|date:"d/m/Y" }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.SAP }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.NUM_SERIE }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.FAMILIA }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.proceso_traducido }}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.AUDITOR }}</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">
+                            {% if aud.NO_CONFORMIDAD %}
+                                <span style="color: red; font-weight: bold;">SI</span>
+                            {% else %}
+                                <span style="color: green; font-weight: bold;">NO</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{{ aud.OBSERVACIONES }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="padding: 12px; text-align: center; border: 1px solid #ddd;">No hay auditorías en los últimos 3 meses para este operario.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div style="display: flex; justify-content: center; margin-top: 20px;">
+        <form id="form-auditorias" action="{% url 'registrar_auditoria' %}" method="post" style="width: 95%; max-width: 1100px;">
+            {% csrf_token %}
+
+            <input type="hidden" id="total-formularios" name="TOTAL_FORMULARIOS" value="1">
+
+            <div id="auditorias-container">
+                <div class="auditoria-bloque" data-index="0" style="border: 1px solid rgba(255,255,255,0.35); border-radius: 10px; padding: 14px; margin-bottom: 14px;">
+                    <div class="horizontal-form">
+                        <div>
+                            <label>SAP:</label>
+                            <input type="text" class="sap-input" name="SAP_0" required>
+                        </div>
+                        <div>
+                            <label>Número de Serie:</label>
+                            <input type="text" class="num-serie-input" name="NUM_SERIE_0" required>
+                        </div>
+                        <div>
+                            <label>Familia:</label>
+                            <select class="familia-select familia-auditoria" name="FAMILIA_0" required style="width: 220px;">
+                                <option value="" disabled selected>Selecciona...</option>
+                                <option value="ITE">ITE</option>
+                                <option value="SDS">SDS</option>
+                                <option value="BTE/RIC">BTE/RIC</option>
+                                <option value="ACCESORIOS">ACCESORIOS</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Puesto:</label>
+                            <select class="puesto-select" name="PUESTO_0" required style="width: 220px;">
+                                <option value="" disabled selected>Selecciona un puesto</option>
+                                {% for field_name, field_display in puestos %}
+                                    <option value="{{ field_name }}">{{ field_display }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Operario:</label>
+                            <select class="operario-select" name="OPERARIO_0" required style="width: 220px;">
+                                <option value="" disabled selected>Selecciona un operario</option>
+                                {% for op in operarios %}
+                                    <option value="{{ op }}">{{ op }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Auditor:</label>
+                            <input type="text" class="auditor-input" name="AUDITOR_0" required>
+                        </div>
+                        <div>
+                            <label class="no-conformidad-label" for="noConformidad_0">No Conformidad:</label>
+                            <input type="checkbox" class="no-conformidad-check" id="noConformidad_0" name="NO_CONFORMIDAD_0">
+                        </div>
+                        <div>
+                            <button type="button" class="eliminar-auditoria-btn" style="display: none; margin-top: 30px; padding: 8px 14px; border: none; border-radius: 6px; background: #ef4444; color: #fff; cursor: pointer;">Eliminar</button>
+                        </div>
+                    </div>
+
+                    <div class="observaciones-campo" style="display: none; width: 100%; margin-top: 10px;">
+                        <label>Observaciones:</label>
+                        <textarea class="observaciones-text" name="OBSERVACIONES_0" rows="5" style="width: 98.5%;"></textarea>
+                    </div>
+                </div>
             </div>
 
             <div style="display: flex; justify-content: center; margin-top: 15px;">
+                <button id="btn-anadir-auditoria" class="button-pop" style="font-size: 18px; padding: 10px 30px; margin-right: 12px;" type="button">+ Añadir auditoría</button>
                 <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">GUARDAR <i class="fa fa-save" aria-hidden="true"></i></button>
             </div>
         </form>
     </div>
-    {% endif %}
-       
-        {% if auditorias_recientes %}
-        <div style="display: flex; justify-content: center; margin-top: 30px; margin-bottom: 30px;">
-            <div style="width: 95%; max-width: 1200px;">
-                <h2 style="color: rgb(0, 132, 203); text-align: center; margin-bottom: 15px;">Auditorías de los últimos 3 meses</h2>
-                <div style="overflow-x: auto; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3); border-radius: 8px;">
-                    <table style="width: 100%; border-collapse: collapse; background-color: white;">
-                        <thead>
-                            <tr style="background-color: rgb(0, 132, 203); color: white;">
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Fecha</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">SAP</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Nº Serie</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Familia</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Puesto</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Auditor</th>
-                                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">No Conformidad</th>
-                                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Observaciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for aud in auditorias_recientes %}
-                            <tr style="{% if aud.NO_CONFORMIDAD %}background-color: #ffebee;{% else %}background-color: {% cycle '#f9f9f9' 'white' %};{% endif %}">
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.DIA|date:"d/m/Y" }}</td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.SAP }}</td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.NUM_SERIE }}</td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.FAMILIA }}</td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.proceso_traducido }}</td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.AUDITOR }}</td>
-                                <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
-                                    {% if aud.NO_CONFORMIDAD %}
-                                        <span style="color: red; font-weight: bold;">✗ SÍ</span>
-                                    {% else %}
-                                        <span style="color: green; font-weight: bold;">✓ NO</span>
-                                    {% endif %}
-                                </td>
-                                <td style="padding: 10px; border: 1px solid #ddd;">{{ aud.OBSERVACIONES }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
 <script>
+    // URLs AJAX expuestas desde Django
+    const URL_PUESTOS_OPERARIO = "{% url 'auditoria_api_puestos_operario' %}";
+    const URL_OPERARIOS_PUESTO = "{% url 'auditoria_api_operarios_puesto' %}";
+
     $(document).ready(function() {
-        $('select').select2({
-            width: '100%',
-            placeholder: 'Buscar...',
-            allowClear: true,
-            language: {
-                noResults: function() {
-                    return "Sin coincidencias";
-                }
+        // Inicializar Select2 en ambos selects
+        function initSelect2(selector, placeholder, dropdownParentSelector = null) {
+            const config = {
+                width: '100%',
+                placeholder: placeholder,
+                allowClear: true,
+                language: { noResults: function() { return "Sin coincidencias"; } }
+            };
+
+            if (dropdownParentSelector) {
+                config.dropdownParent = $(dropdownParentSelector);
+            }
+
+            $(selector).select2({
+                ...config
+            });
+        }
+
+        initSelect2('#puesto', 'Buscar puesto...');
+        initSelect2('#operario', 'Buscar operario...');
+        initSelect2('#operario-historial', 'Buscar operario...', '#panel-buscador-auditoria');
+
+        const botonBuscador = document.getElementById('toggle-buscador-auditoria');
+        const panelBuscador = document.getElementById('panel-buscador-auditoria');
+        const panelResultados = document.getElementById('panel-resultados-auditoria');
+        const botonDescarga = document.getElementById('toggle-descarga-auditoria');
+        const panelDescarga = document.getElementById('panel-descarga-auditoria');
+        const formBuscador = document.getElementById('form-buscador-auditoria');
+        const formDescarga = document.getElementById('form-descarga-auditoria');
+
+        function cerrarPanelesFlotantes() {
+            panelBuscador.classList.remove('visible');
+            if (panelResultados) {
+                panelResultados.classList.remove('visible');
+            }
+            panelDescarga.classList.remove('visible');
+        }
+
+        botonBuscador.addEventListener('click', function() {
+            panelDescarga.classList.remove('visible');
+            panelBuscador.classList.toggle('visible');
+            if (panelResultados) {
+                panelResultados.classList.toggle('visible');
             }
         });
 
-        $('#noConformidad').on('change', function() {
-            if ($(this).is(':checked')) {
-                $('#observaciones-campo').slideDown();
-            } else {
-                $('#observaciones-campo').slideUp();
+        botonDescarga.addEventListener('click', function() {
+            panelBuscador.classList.remove('visible');
+            if (panelResultados) {
+                panelResultados.classList.remove('visible');
             }
+            panelDescarga.classList.toggle('visible');
+        });
+
+        [botonBuscador, botonDescarga, panelBuscador, panelDescarga].forEach(function(elemento) {
+            if (!elemento) return;
+            elemento.addEventListener('click', function(evento) {
+                evento.stopPropagation();
+            });
+        });
+
+        document.addEventListener('click', function(evento) {
+            const dentroBuscador = panelBuscador.contains(evento.target) || botonBuscador.contains(evento.target);
+            const dentroDescarga = panelDescarga.contains(evento.target) || botonDescarga.contains(evento.target);
+
+            if (!dentroBuscador && !dentroDescarga) {
+                cerrarPanelesFlotantes();
+            }
+        });
+
+        $('#operario-historial').on('change select2:select select2:clear', function() {
+            formBuscador.submit();
+        });
+
+        const bloquePlantillaHtml = $('#auditorias-container .auditoria-bloque').first().prop('outerHTML');
+        let sincronizandoCompartidos = false;
+
+        function actualizarEstiloFamilia(selectFamilia) {
+            if (!selectFamilia) return;
+            if (selectFamilia.value) {
+                selectFamilia.classList.add('familia-seleccionada');
+            } else {
+                selectFamilia.classList.remove('familia-seleccionada');
+            }
+        }
+
+        function initSelect2PorBloque($bloque) {
+            const $puesto = $bloque.find('.puesto-select');
+            const $operario = $bloque.find('.operario-select');
+
+            if ($puesto.hasClass('select2-hidden-accessible')) {
+                $puesto.select2('destroy');
+            }
+            if ($operario.hasClass('select2-hidden-accessible')) {
+                $operario.select2('destroy');
+            }
+
+            $puesto.select2({
+                width: '100%',
+                placeholder: 'Buscar puesto...',
+                allowClear: true,
+                dropdownParent: $bloque,
+                language: { noResults: function() { return 'Sin coincidencias'; } }
+            });
+
+            $operario.select2({
+                width: '100%',
+                placeholder: 'Buscar operario...',
+                allowClear: true,
+                dropdownParent: $bloque,
+                language: { noResults: function() { return 'Sin coincidencias'; } }
+            });
+        }
+
+        function reindexarBloques() {
+            const $bloques = $('#auditorias-container .auditoria-bloque');
+            $bloques.each(function(index) {
+                const $bloque = $(this);
+                $bloque.attr('data-index', index);
+
+                $bloque.find('.sap-input').attr('name', `SAP_${index}`);
+                $bloque.find('.num-serie-input').attr('name', `NUM_SERIE_${index}`);
+                $bloque.find('.familia-auditoria').attr('name', `FAMILIA_${index}`);
+                $bloque.find('.puesto-select').attr('name', `PUESTO_${index}`);
+                $bloque.find('.operario-select').attr('name', `OPERARIO_${index}`);
+                $bloque.find('.auditor-input').attr('name', `AUDITOR_${index}`);
+                $bloque.find('.observaciones-text').attr('name', `OBSERVACIONES_${index}`);
+
+                const idNoConformidad = `noConformidad_${index}`;
+                $bloque.find('.no-conformidad-check')
+                    .attr('name', `NO_CONFORMIDAD_${index}`)
+                    .attr('id', idNoConformidad);
+                $bloque.find('.no-conformidad-label').attr('for', idNoConformidad);
+
+                $bloque.find('.eliminar-auditoria-btn').toggle(index > 0);
+            });
+
+            $('#total-formularios').val($bloques.length);
+        }
+
+        function sincronizarCamposCompartidos($bloqueOrigen = null) {
+            if (sincronizandoCompartidos) return;
+            sincronizandoCompartidos = true;
+
+            const $bloques = $('#auditorias-container .auditoria-bloque');
+            if (!$bloques.length) {
+                sincronizandoCompartidos = false;
+                return;
+            }
+
+            const $referencia = $bloqueOrigen && $bloqueOrigen.length ? $bloqueOrigen : $bloques.first();
+
+            const sap = $referencia.find('.sap-input').val() || '';
+            const numSerie = $referencia.find('.num-serie-input').val() || '';
+            const auditor = $referencia.find('.auditor-input').val() || '';
+            const familia = $referencia.find('.familia-auditoria').val() || '';
+
+            $bloques.each(function() {
+                const $bloque = $(this);
+                $bloque.find('.sap-input').val(sap);
+                $bloque.find('.num-serie-input').val(numSerie);
+                $bloque.find('.auditor-input').val(auditor);
+
+                const $familia = $bloque.find('.familia-auditoria');
+                $familia.val(familia);
+                $familia.trigger('change.select2');
+                actualizarEstiloFamilia($familia.get(0));
+            });
+
+            sincronizandoCompartidos = false;
+        }
+
+        function enlazarEventosBloque($bloque) {
+            const $familia = $bloque.find('.familia-auditoria');
+            const $puesto = $bloque.find('.puesto-select');
+            const $operario = $bloque.find('.operario-select');
+            const $checkNoConformidad = $bloque.find('.no-conformidad-check');
+            const $observaciones = $bloque.find('.observaciones-campo');
+
+            if (!$puesto.data('all-options')) {
+                $puesto.data('all-options', $puesto.html());
+            }
+            if (!$operario.data('all-options')) {
+                $operario.data('all-options', $operario.html());
+            }
+
+            actualizarEstiloFamilia($familia.get(0));
+            $familia.off('change.familia').on('change.familia', function() {
+                actualizarEstiloFamilia(this);
+            });
+
+            $bloque.find('.sap-input, .num-serie-input, .auditor-input').off('input.compartidos change.compartidos').on('input.compartidos change.compartidos', function() {
+                sincronizarCamposCompartidos($bloque);
+            });
+
+            $familia.off('change.compartidos').on('change.compartidos', function() {
+                sincronizarCamposCompartidos($bloque);
+            });
+
+            function toggleObservaciones() {
+                if ($checkNoConformidad.is(':checked')) {
+                    $observaciones.stop(true, true).slideDown();
+                } else {
+                    $observaciones.stop(true, true).slideUp();
+                }
+            }
+
+            $checkNoConformidad.off('change.obs').on('change.obs', toggleObservaciones);
+            toggleObservaciones();
+
+            let actualizando = false;
+
+            $operario.off('change.filtro').on('change.filtro', function() {
+                if (actualizando) return;
+                const operario = $(this).val();
+                if (!operario) {
+                    $puesto.html($puesto.data('all-options'));
+                    $puesto.val('').trigger('change.select2');
+                    return;
+                }
+
+                actualizando = true;
+                const puestoActual = $puesto.val();
+                $.getJSON(URL_PUESTOS_OPERARIO, { operario: operario }, function(data) {
+                    $puesto.empty().append('<option value="" disabled>Selecciona un puesto</option>');
+                    data.puestos.forEach(function(p) {
+                        const selected = (p.value === puestoActual) ? ' selected' : '';
+                        $puesto.append('<option value="' + p.value + '"' + selected + '>' + p.text + '</option>');
+                    });
+                    $puesto.trigger('change.select2');
+                }).always(function() { actualizando = false; });
+            });
+
+            $puesto.off('change.filtro').on('change.filtro', function() {
+                if (actualizando) return;
+                const puesto = $(this).val();
+                if (!puesto) {
+                    $operario.html($operario.data('all-options'));
+                    $operario.val('').trigger('change.select2');
+                    return;
+                }
+
+                actualizando = true;
+                const operarioActual = $operario.val();
+                $.getJSON(URL_OPERARIOS_PUESTO, { puesto: puesto }, function(data) {
+                    $operario.empty().append('<option value="" disabled>Selecciona un operario</option>');
+                    data.operarios.forEach(function(op) {
+                        const selected = (op === operarioActual) ? ' selected' : '';
+                        $operario.append('<option value="' + op + '"' + selected + '>' + op + '</option>');
+                    });
+                    $operario.trigger('change.select2');
+                }).always(function() { actualizando = false; });
+            });
+
+            initSelect2PorBloque($bloque);
+        }
+
+        $('#auditorias-container .auditoria-bloque').each(function() {
+            enlazarEventosBloque($(this));
+        });
+        reindexarBloques();
+        sincronizarCamposCompartidos($('#auditorias-container .auditoria-bloque').first());
+
+        $('#btn-anadir-auditoria').on('click', function() {
+            const $nuevoBloque = $(bloquePlantillaHtml);
+            $nuevoBloque.find('input[type="text"]').val('');
+            $nuevoBloque.find('textarea').val('');
+            $nuevoBloque.find('select').prop('selectedIndex', 0);
+            $nuevoBloque.find('.no-conformidad-check').prop('checked', false);
+
+            $('#auditorias-container').append($nuevoBloque);
+            enlazarEventosBloque($nuevoBloque);
+            reindexarBloques();
+            sincronizarCamposCompartidos($('#auditorias-container .auditoria-bloque').first());
+        });
+
+        $('#auditorias-container').on('click', '.eliminar-auditoria-btn', function() {
+            $(this).closest('.auditoria-bloque').remove();
+            reindexarBloques();
+            sincronizarCamposCompartidos($('#auditorias-container .auditoria-bloque').first());
         });
     });
 
     document.querySelectorAll('.button-pop').forEach(button => {
         button.addEventListener('click', function () {
             button.classList.add('pop-effect');
-            setTimeout(() => {
-                button.classList.remove('pop-effect');
-            }, 200);
+            setTimeout(() => { button.classList.remove('pop-effect'); }, 200);
         });
     });
 

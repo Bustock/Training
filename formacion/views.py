@@ -33,8 +33,8 @@ import shutil
 
 
 #BASE_URL = r"C:\Git\Training"
-#BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
-BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")
+BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
+#BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")
 
 
 def shared_path(*parts):
@@ -492,6 +492,7 @@ def formacion_opis(request):
     puesto_info = []
     opi_form = OpiForm(request.GET)
     opis_info = []
+    firma_formador_opi_guardada = False
     formados_info = []
     sin_firma_info = []
     firma_info = []
@@ -505,6 +506,8 @@ def formacion_opis(request):
         if opi:
             opi_obj = opis.objects.filter(OPI=opi).first()
             opi_a_mod = opi_obj
+            _, formador_opi, firma_formador_opi_path = _obtener_datos_firma_formador_opi(opi_obj)
+            firma_formador_opi_guardada = bool(formador_opi and firma_formador_opi_path)
             secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
 
             formados_dict = opi_obj.formados if isinstance(opi_obj.formados, dict) else {}
@@ -530,6 +533,9 @@ def formacion_opis(request):
 
                 if valores_validos:
                     opis_info.append({'nombre': operario.OPERARIO})
+        else:
+            # Evita reutilizar una OPI previa cuando no hay selección actual.
+            opi_a_mod = []
 
     if operario_form.is_valid():
         operario_seleccionado = operario_form.cleaned_data.get('OPERARIO')
@@ -578,6 +584,7 @@ def formacion_opis(request):
         'opi_form': opi_form,
         'opis_info': opis_info,
         'opi_a_mod': opi_a_mod,
+        'firma_formador_opi_guardada': firma_formador_opi_guardada,
         'formados_info': formados_info,
         'sin_firma_info': sin_firma_info,
         'firma_info': firma_info,
@@ -2758,89 +2765,260 @@ def grafica(request):
 @groups_required('admin', 'formacion')
 @login_required
 def auditoria_diaria(request):
-    global puestos_dict
-    operario_form = OperarioForm(request.GET)
-    operarios_info = []
+    AUDITORIA_PUESTO_PRODUCTO_ACABADO = 'PRODUCTO ACABADO'
+    AUDITORIA_PUESTO_PRODUCTO_ACABADO_LABEL = 'PRODUCTO ACABADO'
+    _campos_excluidos = {'id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en'}
+    operario_historial = (request.GET.get('OPERARIO_HISTORIAL') or '').strip().upper()
+
+    todos_los_puestos = [
+        (field.name, puestos_dict.get(field.name, field.name))
+        for field in polivalencia._meta.fields
+        if field.name not in _campos_excluidos
+    ]
+    # Puesto adicional de auditoría: auditable para cualquier operario.
+    todos_los_puestos.append((AUDITORIA_PUESTO_PRODUCTO_ACABADO, AUDITORIA_PUESTO_PRODUCTO_ACABADO_LABEL))
+
+    # Operarios con al menos un puesto real con nivel >= 2
+    from django.db.models import Q
+    q = Q()
+    for field in polivalencia._meta.fields:
+        if field.name not in _campos_excluidos:
+            q |= Q(**{f'{field.name}__gte': 2})
+    todos_los_operarios = (
+        polivalencia.objects.filter(q)
+        .values_list('OPERARIO', flat=True)
+        .order_by('OPERARIO')
+    )
+
+    operarios_historial = (
+        auditoria.objects
+        .values_list('OPERARIO', flat=True)
+        .distinct()
+        .order_by('OPERARIO')
+    )
+
     auditorias_recientes = []
-    puesto_form = PuestoForm(request.GET)
+    if operario_historial:
+        fecha_limite = timezone.now().date() - timedelta(days=90)
+        auditorias_recientes = auditoria.objects.filter(
+            OPERARIO=operario_historial,
+            DIA__gte=fecha_limite
+        ).order_by('-DIA')
 
-    if operario_form.is_valid():
-        operario_seleccionado = operario_form.cleaned_data.get('OPERARIO')
-        if operario_seleccionado:
-            operario_obj = polivalencia.objects.filter(OPERARIO=operario_seleccionado).first()
-            if operario_obj:
-                campos_excluidos = ['id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en']
-                campos_validos = [
-                    (field.name, puestos_dict.get(field.name, field.name))
-                    for field in polivalencia._meta.fields
-                    if field.name not in campos_excluidos and getattr(operario_obj, field.name) not in [0, 1]
-                ]
+        for aud in auditorias_recientes:
+            aud.proceso_traducido = puestos_dict.get(aud.PROCESO, aud.PROCESO)
 
-                operarios_info = {
-                    'nombre': operario_obj.OPERARIO,
-                    'campos_validos': campos_validos
-                }
-                
-                # Buscar auditorías de los últimos 3 meses
-                fecha_limite = timezone.now().date() - timedelta(days=90)
-                auditorias_recientes = auditoria.objects.filter(
-                    OPERARIO=operario_seleccionado,
-                    DIA__gte=fecha_limite
-                ).order_by('-DIA')
-                
-                # Traducir el proceso al nombre legible
-                for aud in auditorias_recientes:
-                    aud.proceso_traducido = puestos_dict.get(aud.PROCESO, aud.PROCESO)
-
-                return render(request, 'auditoria.html', {
-                    'mensaje': messages.get_messages(request),
-                    'operario_form': operario_form,
-                    'operarios_info': operarios_info,
-                    'auditorias_recientes': auditorias_recientes
-                })
-    
-    return render(request, 'auditoria.html', {'mensaje': messages.get_messages(request),
-                                                            'operario_form': operario_form,})
+    return render(request, 'auditoria.html', {
+        'mensaje': messages.get_messages(request),
+        'operarios': list(todos_los_operarios),
+        'puestos': todos_los_puestos,
+        'operarios_historial': list(operarios_historial),
+        'operario_historial_seleccionado': operario_historial,
+        'auditorias_recientes': auditorias_recientes,
+    })
 
 @groups_required('admin', 'formacion')
 @login_required
 def registrar_auditoria(request):
     if request.method == 'POST':
+        AUDITORIA_PUESTO_PRODUCTO_ACABADO = 'PRODUCTO ACABADO'
         dia = datetime.now().date()
-        sap = request.POST.get('SAP').upper()
-        num_serie = request.POST.get('NUM_SERIE').upper()
-        familia = request.POST.get('FAMILIA').upper()
-        proceso = request.POST.get('PUESTO').upper()
-        auditor_nombre = request.POST.get('AUDITOR').upper()
-        operario = request.POST.get('OPERARIO').upper()
-        no_conformidad = request.POST.get('NO_CONFORMIDAD') == 'on'
-        observaciones = request.POST.get('OBSERVACIONES').upper()
+        total_formularios = request.POST.get('TOTAL_FORMULARIOS', '1')
 
-        if not no_conformidad:
-            observaciones = 'TODO OK'
+        try:
+            total_formularios = max(1, int(total_formularios))
+        except (TypeError, ValueError):
+            total_formularios = 1
 
+        errores = []
+        auditorias_a_guardar = []
 
-        if sap and num_serie and familia and proceso and auditor_nombre and operario:
-            nueva_auditoria = auditoria.objects.create(
-                DIA=dia,
-                SAP=sap,
-                NUM_SERIE=num_serie,
-                FAMILIA=familia,
-                PROCESO=proceso,
-                AUDITOR=auditor_nombre,
-                OPERARIO=operario,
-                NO_CONFORMIDAD=no_conformidad,
-                OBSERVACIONES=observaciones
-            )
+        for i in range(total_formularios):
+            sap = (request.POST.get(f'SAP_{i}') or '').strip().upper()
+            num_serie = (request.POST.get(f'NUM_SERIE_{i}') or '').strip().upper()
+            familia = (request.POST.get(f'FAMILIA_{i}') or '').strip().upper()
+            proceso = (request.POST.get(f'PUESTO_{i}') or '').strip().upper()
+            auditor_nombre = (request.POST.get(f'AUDITOR_{i}') or '').strip().upper()
+            operario = (request.POST.get(f'OPERARIO_{i}') or '').strip().upper()
+            no_conformidad = request.POST.get(f'NO_CONFORMIDAD_{i}') == 'on'
+            observaciones = (request.POST.get(f'OBSERVACIONES_{i}') or '').strip().upper()
+
+            if proceso == 'PRODUCTO_ACABADO':
+                proceso = AUDITORIA_PUESTO_PRODUCTO_ACABADO
+
+            campos_faltantes = []
+            if not sap:
+                campos_faltantes.append('SAP')
+            if not num_serie:
+                campos_faltantes.append('NÚMERO DE SERIE')
+            if not familia:
+                campos_faltantes.append('FAMILIA')
+            if not proceso:
+                campos_faltantes.append('PUESTO')
+            if not auditor_nombre:
+                campos_faltantes.append('AUDITOR')
+            if not operario:
+                campos_faltantes.append('OPERARIO')
+            if no_conformidad and not observaciones:
+                campos_faltantes.append('OBSERVACIONES')
+
+            if campos_faltantes:
+                errores.append(f"Formulario {i + 1}: faltan {', '.join(campos_faltantes)}.")
+                continue
+
+            if not no_conformidad:
+                observaciones = 'TODO OK'
+
+            auditorias_a_guardar.append({
+                'DIA': dia,
+                'SAP': sap,
+                'NUM_SERIE': num_serie,
+                'FAMILIA': familia,
+                'PROCESO': proceso,
+                'AUDITOR': auditor_nombre,
+                'OPERARIO': operario,
+                'NO_CONFORMIDAD': no_conformidad,
+                'OBSERVACIONES': observaciones,
+            })
+
+        if errores:
+            for err in errores:
+                messages.error(request, err)
+            messages.error(request, 'No se guardó ninguna auditoría. Corrige los errores e inténtalo de nuevo.')
+            return redirect('auditoria_diaria')
+
+        for data_auditoria in auditorias_a_guardar:
+            nueva_auditoria = auditoria.objects.create(**data_auditoria)
             nueva_auditoria.creado_por = request.user
             nueva_auditoria.save()
-            messages.success(request, "Auditoría registrada correctamente.")
+
+        cantidad = len(auditorias_a_guardar)
+        if cantidad == 1:
+            messages.success(request, 'Auditoría registrada correctamente.')
         else:
-            messages.error(request, "Por favor, complete todos los campos obligatorios.")
+            messages.success(request, f'Se registraron {cantidad} auditorías correctamente.')
 
         
 
     return redirect('auditoria_diaria')  # Redirigir a la página de auditoría diaria
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def descargar_auditorias(request):
+    fecha_desde_raw = (request.GET.get('desde') or '').strip()
+    fecha_hasta_raw = (request.GET.get('hasta') or '').strip()
+
+    if not fecha_desde_raw or not fecha_hasta_raw:
+        messages.error(request, 'Debes seleccionar las fechas desde y hasta.')
+        return redirect('auditoria_diaria')
+
+    try:
+        fecha_desde = datetime.strptime(fecha_desde_raw, '%Y-%m-%d').date()
+        fecha_hasta = datetime.strptime(fecha_hasta_raw, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, 'Formato de fecha no válido.')
+        return redirect('auditoria_diaria')
+
+    if fecha_desde > fecha_hasta:
+        messages.error(request, 'La fecha desde no puede ser posterior a la fecha hasta.')
+        return redirect('auditoria_diaria')
+
+    registros = auditoria.objects.filter(DIA__range=(fecha_desde, fecha_hasta)).order_by('DIA', 'OPERARIO', 'SAP')
+
+    filas = []
+    for registro in registros:
+        filas.append({
+            'Fecha': registro.DIA.strftime('%d/%m/%Y') if registro.DIA else '',
+            'SAP': registro.SAP,
+            'Número de Serie': registro.NUM_SERIE,
+            'Familia': registro.FAMILIA,
+            'Puesto': registro.PROCESO,
+            'Auditor': registro.AUDITOR,
+            'Operario': registro.OPERARIO,
+            'No Conformidad': 'SI' if registro.NO_CONFORMIDAD else 'NO',
+            'Observaciones': registro.OBSERVACIONES or '',
+        })
+
+    df = pd.DataFrame(filas, columns=[
+        'Fecha', 'SAP', 'Número de Serie', 'Familia', 'Puesto', 'Auditor', 'Operario', 'No Conformidad', 'Observaciones'
+    ])
+
+    from io import BytesIO
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Auditorias')
+
+    output.seek(0)
+    filename = f'Auditorias_{fecha_desde.strftime("%Y%m%d")}_{fecha_hasta.strftime("%Y%m%d")}.xlsx'
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+####################################################################### AJAX AUDITORÍA #######################################################################################
+
+@groups_required('admin', 'formacion')
+@login_required
+def auditoria_api_puestos_operario(request):
+    """Devuelve los puestos (nivel >= 2) de un operario dado. Usado por AJAX."""
+    AUDITORIA_PUESTO_PRODUCTO_ACABADO = 'PRODUCTO ACABADO'
+    AUDITORIA_PUESTO_PRODUCTO_ACABADO_LABEL = 'PRODUCTO ACABADO'
+    operario = request.GET.get('operario', '').strip()
+    if not operario:
+        return JsonResponse({'puestos': []})
+
+    _campos_excluidos = {'id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en'}
+    operario_obj = polivalencia.objects.filter(OPERARIO=operario).first()
+    if not operario_obj:
+        return JsonResponse({'puestos': []})
+
+    puestos = [
+        {'value': field.name, 'text': puestos_dict.get(field.name, field.name)}
+        for field in polivalencia._meta.fields
+        if field.name not in _campos_excluidos and getattr(operario_obj, field.name, 0) >= 2
+    ]
+    puestos.append({'value': AUDITORIA_PUESTO_PRODUCTO_ACABADO, 'text': AUDITORIA_PUESTO_PRODUCTO_ACABADO_LABEL})
+    return JsonResponse({'puestos': puestos})
+
+
+@groups_required('admin', 'formacion')
+@login_required
+def auditoria_api_operarios_puesto(request):
+    """Devuelve los operarios con nivel >= 2 en un puesto dado. Usado por AJAX."""
+    AUDITORIA_PUESTO_PRODUCTO_ACABADO = 'PRODUCTO ACABADO'
+    campo = request.GET.get('puesto', '').strip()
+    _campos_excluidos = {'id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en'}
+    # Si el puesto es Producto Acabado, se permiten todos los operarios auditables.
+    if campo == AUDITORIA_PUESTO_PRODUCTO_ACABADO:
+        from django.db.models import Q
+        q = Q()
+        for field in polivalencia._meta.fields:
+            if field.name not in _campos_excluidos:
+                q |= Q(**{f'{field.name}__gte': 2})
+
+        operarios = (
+            polivalencia.objects
+            .filter(q)
+            .values_list('OPERARIO', flat=True)
+            .order_by('OPERARIO')
+        )
+        return JsonResponse({'operarios': list(operarios)})
+
+    # Validar que el campo existe en el modelo (evitar inyección de campos arbitrarios)
+    if not campo or campo not in puestos_dict or campo in _campos_excluidos:
+        return JsonResponse({'operarios': []})
+
+    operarios = (
+        polivalencia.objects
+        .filter(**{f'{campo}__gte': 2})
+        .values_list('OPERARIO', flat=True)
+        .order_by('OPERARIO')
+    )
+    return JsonResponse({'operarios': list(operarios)})
 
 
 ####################################################################### GESTOR PLANTILLAS .TXT #######################################################################################

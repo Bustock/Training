@@ -241,10 +241,13 @@
             <button class="button-pop" style="font-size: 18px; padding: 10px 30px;" type="submit">FILTRAR <i class="fa fa-search" aria-hidden="true"></i></button>
 
             {% if opi_a_mod %}
-                <div style="margin-top: 14px; margin-bottom: 10px;">
+                <div style="margin-top: 14px; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <a href="{% url 'firmar_formador_opi' %}?opi={{ opi_a_mod|urlencode }}" style="font-weight: 700; display: inline-block; padding: 8px 14px; background: rgba(255,255,255,0.12); border-radius: 8px;">
                         <i class="fa-solid fa-signature"></i> Firmar formador de esta OPI
                     </a>
+                    {% if firma_formador_opi_guardada %}
+                        <span class="opi-status-badge"><i class="fa-solid fa-circle-check"></i> Ya firmado</span>
+                    {% endif %}
                 </div>
             {% endif %}
 

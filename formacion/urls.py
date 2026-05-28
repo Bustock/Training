@@ -42,5 +42,8 @@ urlpatterns = [
     path('grafica', grafica, name='grafica'),
     path('auditoria_diaria', auditoria_diaria, name='auditoria_diaria'),
     path('registrar_auditoria', registrar_auditoria, name='registrar_auditoria'),
+    path('descargar_auditorias', descargar_auditorias, name='descargar_auditorias'),
+    path('auditoria_api/puestos_operario/', auditoria_api_puestos_operario, name='auditoria_api_puestos_operario'),
+    path('auditoria_api/operarios_puesto/', auditoria_api_operarios_puesto, name='auditoria_api_operarios_puesto'),
     path('edicion_plantillas', edicion_plantillas, name='edicion_plantillas'),
 ]
