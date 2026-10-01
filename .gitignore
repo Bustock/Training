@@ -2,3 +2,4 @@ formaciones.sqlite3
 formacion/migrations/*
 media/firmas_opis/*
 media/documentos/*
+db.sqlite3

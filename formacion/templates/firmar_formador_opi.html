@@ -61,8 +61,21 @@
             {% csrf_token %}
             <input type="hidden" name="opi" value="{{ opi }}">
 
-            <label for="formador"><strong>Nombre del formador:</strong></label>
-            <input type="text" id="formador" name="formador" value="{{ formador }}" required><br><br>
+            <label for="formador"><strong>Formador:</strong></label>
+            <select id="formador" name="formador" required>
+                        <option value="" disabled selected>Selecciona</option>
+                        <option value="MARIA CABALLERO" {% if formador == "MARIA CABALLERO" %}selected{% endif %}>MARIA CABALLERO</option>
+                        <option value="CLARA SERRANO" {% if formador == "CLARA SERRANO" %}selected{% endif %}>CLARA SERRANO</option>
+                        <option value="FRANCISCO TARI" {% if formador == "FRANCISCO TARI" %}selected{% endif %}>FRANCISCO TARI</option>
+                        <option value="LAURA FERNANDEZ" {% if formador == "LAURA FERNANDEZ" %}selected{% endif %}>LAURA FERNANDEZ</option>
+                        <option value="ANTONIO ARQUERO" {% if formador == "ANTONIO ARQUERO" %}selected{% endif %}>ANTONIO ARQUERO</option>
+                        <option value="YAIZA LAORDEN" {% if formador == "YAIZA LAORDEN" %}selected{% endif %}>YAIZA LAORDEN</option>
+                        <option value="PURIFICACION CAZORLA" {% if formador == "PURIFICACION CAZORLA" %}selected{% endif %}>PURIFICACION CAZORLA</option>
+                        <option value="ROSA CEREZO" {% if formador == "ROSA CEREZO" %}selected{% endif %}>ROSA CEREZO</option>
+                        <option value="FERNANDO ASENSI" {% if formador == "FERNANDO ASENSI" %}selected{% endif %}>FERNANDO ASENSI</option>
+                        <option value="LAURA VERDU" {% if formador == "LAURA VERDU" %}selected{% endif %}>LAURA VERDU</option>
+                        <option value="JUAN RUFETE" {% if formador == "JUAN RUFETE" %}selected{% endif %}>JUAN RUFETE</option>
+                    </select><br><br>
 
             <label for="firma">Firma:</label><br>
             <canvas id="signature-pad"></canvas><br>

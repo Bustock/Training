@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from .models import *
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
@@ -143,10 +144,11 @@ class SeccionForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        campos_excluidos = ('id', 'OPERARIO', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en')
         seccion_choices = [
             (field.name, puestos_dict.get(field.name, field.name))
             for field in polivalencia._meta.fields
-            if field.name not in ['id', 'OPERARIO']
+            if field.name not in campos_excluidos
         ]
         for i in range(1, 8):
             self.fields[f'SECCION{i}'].choices = [('', 'Seleccione sección')] + seccion_choices
@@ -159,12 +161,24 @@ class OpiForm(forms.Form):
         opis_choices = []
         operarios = list(polivalencia.objects.all())
 
-        for opi_obj in opis.objects.all():
+        opis_visibles = opis.objects.filter(Q(es_pdl_padre=True) | Q(pdl_padre='')).order_by('OPI')
+
+        for opi_obj in opis_visibles:
             formados_dict = opi_obj.formados if isinstance(opi_obj.formados, dict) else {}
             firmas_dict = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
 
-            operarios_formados = {nombre for nombre in formados_dict.keys() if nombre}
-            operarios_firmados = {nombre for nombre in firmas_dict.keys() if nombre}
+            if opi_obj.es_pdl_padre:
+                opis_hijas = opis.objects.filter(pdl_padre=opi_obj.OPI, es_pdl_padre=False)
+                operarios_formados = set()
+                operarios_firmados = set()
+                for hija in opis_hijas:
+                    formados_hija = hija.formados if isinstance(hija.formados, dict) else {}
+                    firmas_hija = hija.firmas if isinstance(hija.firmas, dict) else {}
+                    operarios_formados.update({nombre for nombre in formados_hija.keys() if nombre})
+                    operarios_firmados.update({nombre for nombre in firmas_hija.keys() if nombre})
+            else:
+                operarios_formados = {nombre for nombre in formados_dict.keys() if nombre}
+                operarios_firmados = {nombre for nombre in firmas_dict.keys() if nombre}
 
             secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
 

@@ -5,6 +5,11 @@
     <title>FORMACIONES SRCSE</title>
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <style>
+        html,
+        body {
+            overflow-x: hidden;
+        }
+
         body {
             text-align: center;
             background-color: #f5f7fa; /* Color de fondo */
@@ -13,8 +18,43 @@
             background-repeat: no-repeat; /* Evita que la imagen se repita */
             background-position: 10px 10px; /* Posiciona la imagen en la esquina superior izquierda */
             background-attachment: fixed; /* Fija la imagen al fondo */
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        form, h1 {
+
+        .page-shell {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 26px;
+            padding: 24px 12px;
+            box-sizing: border-box;
+        }
+        h1 {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        #form-nueva-opi {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border: none;
+        }
+
+        .main-form-card {
             background-color: rgb(0, 132, 203);
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
             padding: 20px;
@@ -85,54 +125,278 @@
         .input-version {
             width: 50px;
         }
+
+        .tipo-preview {
+            margin-top: 10px;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 8px 10px;
+            display: inline-block;
+        }
+
+        .input-tipo {
+            text-transform: uppercase;
+        }
+
+        /* Cambio visual reactivo por tipo */
+        #form-nueva-opi[data-tipo="OPI"] .main-form-card {
+            background-color: rgb(0, 132, 203);
+        }
+
+        #form-nueva-opi[data-tipo="WI"] .main-form-card {
+            background-color: rgb(17, 123, 80);
+        }
+
+        #form-nueva-opi[data-tipo="SOP"] .main-form-card {
+            background-color: rgb(131, 95, 13);
+        }
+
+        #form-nueva-opi[data-tipo="DEFAULT"] .main-form-card {
+            background-color: rgb(0, 132, 203);
+        }
+
+        .main-form-wrap {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .forms-scroller {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 14px 10px;
+            box-sizing: border-box;
+            display: block;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 0 auto;
+        }
+
+        .forms-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 20px;
+            width: max-content;
+            margin: 0;
+        }
+
+        .extra-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .extras-panel {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(0, 90, 140, 0.35);
+            width: calc(100vw - 24px);
+            max-width: calc(100vw - 24px);
+            box-sizing: border-box;
+        }
+
+        .extras-panel h3 {
+            margin: 0 0 8px 0;
+            font-size: 20px;
+        }
+
+        .main-form-wrap #form-nueva-opi {
+            margin: 0 auto;
+        }
+
+        #form-nueva-opi.pdl-compact .main-form-card {
+            min-width: 420px;
+        }
+
+        #form-nueva-opi.pdl-compact .compact-hidden {
+            display: none;
+        }
+
+        #form-nueva-opi.pdl-compact #btn-guardar {
+            margin-top: 10px;
+        }
+
+        .btn-add-form {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: rgb(0, 132, 203);
+            color: #ffffff;
+            font-size: 34px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .extra-forms-stack {
+            display: flex;
+            flex-direction: row;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .extra-form-card {
+            background-color: rgb(0, 132, 203);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.5);
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+            width: 500px;
+            max-width: 92vw;
+        }
+
+        .btn-remove-form {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            background: rgb(186, 57, 47);
+            color: #ffffff;
+            font-size: 30px;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .extra-form-card h4 {
+            color: #ffffff;
+            margin: 8px 0;
+        }
+
+        .extra-inputs-inline {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .extra-inputs-inline div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .extra-inputs-inline input {
+            padding: 6px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            text-transform: uppercase;
+        }
+
+        .extra-form-card textarea {
+            width: 92%;
+            margin-top: 6px;
+        }
+
+        .extra-puestos {
+            margin-top: 10px;
+            color: #ffffff;
+        }
+
+        .extra-puestos p,
+        .extra-puestos label,
+        .extra-puestos select {
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        .extra-puestos select {
+            color: #000000;
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body>
-    <form action="/guardar_opi" method="POST">
-        {% csrf_token %}
+    <div class="page-shell">
+        <div class="main-form-wrap">
+            <form action="/guardar_opi" method="POST" id="form-nueva-opi" data-tipo="DEFAULT">
+                {% csrf_token %}
 
-        <div class="inline-labels">
-            <label for="OPI"><h3>OPI</h3></label>
-            <div class="inputs-inline">
-                <div>
-                    <h3>Tipo</h3>
-                    <input type="text" id="tipo" name="tipo" class="input-tipo">
-                </div>
-                <div>
-                    <h3>ID</h3>
-                    <input type="text" id="ID" name="ID" class="input-id">
-                </div>
-                <div>
-                    <h3>Versión</h3>
-                    <input type="text" id="version" name="version" class="input-version">
-                </div>
-            </div>
-        </div>
+                <div id="main-form-card" class="main-form-card">
 
-        <div class="inline-labels">
-            <label for="INFO"><h3>DESCRIPCION</h3></label>
-            <textarea id="INFO" name="INFO" maxlength="800"style="padding: 6px; width: 90%;"></textarea><br><br>
-        </div>
+                <div class="inline-labels">
+                    <label for="OPI"><h3 id="titulo-formacion">NUEVA FORMACION</h3></label>
+                    <div class="inputs-inline">
+                        <div>
+                            <h3>Tipo</h3>
+                            <input type="text" id="tipo" name="tipo" class="input-tipo" maxlength="10" placeholder="OPI">
+                        </div>
+                        <div>
+                            <h3>ID</h3>
+                            <input type="text" id="ID" name="ID" class="input-id">
+                        </div>
+                        <div>
+                            <h3>Versión</h3>
+                            <input type="text" id="version" name="version" class="input-version">
+                        </div>
+                    </div>
+                    <div id="tipo-preview" class="tipo-preview">Codigo generado: OPI-XXXXX [1]</div>
+                </div>
 
-        <div class="inline-labels">
-            <label for="SECCION1"><h3>PUESTOS RELACIONADOS</h3></label>
-            
-            <!-- Si puesto_form ya tiene un campo con name="SECCION1", este lo usará -->
-            {{ puesto_form.as_p }}
-            <!-- Mostrar los resultados del puesto aquí, si los hay -->
-            {% if puestos_info %}
-                <h3>Puesto seleccionado: {{ puestos_info.0.puesto }}</h3>
-                <ul>
-                    {% for operario in puestos_info %}
-                        <li>{{ operario.nombre }} - {{ operario.puesto }}: {{ operario.valor }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
+                <div class="inline-labels compact-hidden" id="bloque-descripcion-principal">
+                    <label for="INFO"><h3 id="label-descripcion">DESCRIPCION</h3></label>
+                    <textarea id="INFO" name="INFO" maxlength="800"style="padding: 6px; width: 90%;"></textarea><br><br>
+                </div>
+
+                <div class="inline-labels bloque-puestos compact-hidden" id="bloque-puestos-principal">
+                    <label for="SECCION1"><h3>PUESTOS RELACIONADOS</h3></label>
+                    
+                    <div id="puestos-contenido-principal">
+                        <!-- Si puesto_form ya tiene un campo con name="SECCION1", este lo usará -->
+                        {{ puesto_form.as_p }}
+                        <!-- Mostrar los resultados del puesto aquí, si los hay -->
+                        {% if puestos_info %}
+                            <h3>Puesto seleccionado: {{ puestos_info.0.puesto }}</h3>
+                            <ul>
+                                {% for operario in puestos_info %}
+                                    <li>{{ operario.nombre }} - {{ operario.puesto }}: {{ operario.valor }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <br>
+                <input id="btn-guardar" class="button-pop" type="submit" style="font-size: 18px; padding: 10px 30px;" value="Guardar OPI"><br><br>
+                </div>
+
+                <div id="extras-panel" class="extras-panel hidden">
+                    <h3>OPIS ASOCIADAS AL PDL</h3>
+                    <div class="forms-scroller">
+                        <div class="forms-row">
+                        <div id="formularios-extra" class="extra-forms-stack"></div>
+                        <div class="extra-controls">
+                            <button type="button" id="btn-add-form" class="btn-add-form button-pop hidden" title="Agregar formulario">+</button>
+                            <button type="button" id="btn-remove-form" class="btn-remove-form button-pop hidden" title="Eliminar último formulario">-</button>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
-        
-        <br>
-        <input class="button-pop" type="submit" style="font-size: 18px; padding: 10px 30px;" value="Guardar"><br><br>
-    </form>
+    </div>
     <script>
         // Efecto pop al hacer click en cualquier botón con .button-pop
         document.querySelectorAll('.button-pop').forEach(button => {
@@ -143,6 +407,143 @@
                 }, 200); // Debe coincidir con la duración de la transición
             });
         });
+
+        const tipoInput = document.getElementById('tipo');
+        const idInput = document.getElementById('ID');
+        const versionInput = document.getElementById('version');
+        const preview = document.getElementById('tipo-preview');
+        const titulo = document.getElementById('titulo-formacion');
+        const labelDescripcion = document.getElementById('label-descripcion');
+        const btnGuardar = document.getElementById('btn-guardar');
+        const formNuevaOpi = document.getElementById('form-nueva-opi');
+        const btnAddForm = document.getElementById('btn-add-form');
+        const btnRemoveForm = document.getElementById('btn-remove-form');
+        const extrasPanel = document.getElementById('extras-panel');
+        const formulariosExtra = document.getElementById('formularios-extra');
+        const puestosContenidoPrincipal = document.getElementById('puestos-contenido-principal');
+        const bloqueDescripcionPrincipal = document.getElementById('bloque-descripcion-principal');
+        const bloquePuestosPrincipal = document.getElementById('bloque-puestos-principal');
+        let contadorFormulariosExtra = 0;
+
+        function actualizarControlesExtras() {
+            const esPDL = (tipoInput.value || '').trim().toUpperCase() === 'PDL';
+            const cards = Array.from(formulariosExtra.querySelectorAll('.extra-form-card'));
+            const mostrarMenos = esPDL && cards.length > 1;
+            btnRemoveForm.classList.toggle('hidden', !mostrarMenos);
+        }
+
+        function sanitizarCamposExtra(card, indice) {
+            card.querySelectorAll('[id]').forEach(el => {
+                el.id = `extra_${indice}_${el.id}`;
+            });
+
+            card.querySelectorAll('[name]').forEach(el => {
+                el.name = `extra_${indice}_${el.name}`;
+            });
+
+            card.querySelectorAll('label[for]').forEach(label => {
+                label.htmlFor = `extra_${indice}_${label.htmlFor}`;
+            });
+        }
+
+        function registrarReactividadEnFormularioExtra(card) {
+            const tipoExtra = card.querySelector('.extra-tipo');
+            const idExtra = card.querySelector('.extra-id');
+            const versionExtra = card.querySelector('.extra-version');
+            const previewExtra = card.querySelector('.extra-preview');
+
+            function refrescarExtra() {
+                const tipo = (tipoExtra.value || '').trim().toUpperCase() || 'OPI';
+                const id = (idExtra.value || '').trim().toUpperCase() || 'XXXXX';
+                const version = (versionExtra.value || '').trim().toUpperCase() || '1';
+                previewExtra.textContent = `Codigo generado: ${tipo}-${id} [${version}]`;
+            }
+
+            tipoExtra.addEventListener('input', refrescarExtra);
+            idExtra.addEventListener('input', refrescarExtra);
+            versionExtra.addEventListener('input', refrescarExtra);
+            refrescarExtra();
+        }
+
+        function crearFormularioExtra() {
+            contadorFormulariosExtra += 1;
+            const indice = contadorFormulariosExtra;
+            const puestosHtml = puestosContenidoPrincipal ? puestosContenidoPrincipal.innerHTML : '';
+
+            const card = document.createElement('div');
+            card.className = 'extra-form-card';
+            card.innerHTML = `
+                <h4>Formulario adicional ${indice}</h4>
+                <div class="extra-inputs-inline">
+                    <div>
+                        <h4>Tipo</h4>
+                        <input type="text" name="tipo" class="input-tipo extra-tipo" maxlength="10" placeholder="OPI">
+                    </div>
+                    <div>
+                        <h4>ID</h4>
+                        <input type="text" name="ID" class="input-id extra-id">
+                    </div>
+                    <div>
+                        <h4>Versión</h4>
+                        <input type="text" name="version" class="input-version extra-version">
+                    </div>
+                </div>
+                <div class="tipo-preview extra-preview">Codigo generado: OPI-XXXXX [1]</div>
+                <div>
+                    <h4>DESCRIPCION</h4>
+                    <textarea name="INFO" maxlength="800" style="padding: 6px;"></textarea>
+                </div>
+                <div class="extra-puestos">
+                    <h4>PUESTOS RELACIONADOS</h4>
+                    ${puestosHtml}
+                </div>
+            `;
+
+            sanitizarCamposExtra(card, indice);
+            registrarReactividadEnFormularioExtra(card);
+            formulariosExtra.appendChild(card);
+            actualizarControlesExtras();
+        }
+
+        function eliminarUltimoFormularioExtra() {
+            const cards = Array.from(formulariosExtra.querySelectorAll('.extra-form-card'));
+            if (cards.length === 0) {
+                return;
+            }
+
+            cards[cards.length - 1].remove();
+            actualizarControlesExtras();
+        }
+
+        function actualizarVistaReactiva() {
+            const tipoCrudo = (tipoInput.value || '').trim().toUpperCase();
+            const tipo = tipoCrudo || 'OPI';
+            const id = (idInput.value || '').trim().toUpperCase() || 'XXXXX';
+            const version = (versionInput.value || '').trim().toUpperCase() || '1';
+
+            preview.textContent = `Codigo generado: ${tipo}-${id} [${version}]`;
+            titulo.textContent = `NUEVA FORMACION (${tipo})`;
+            labelDescripcion.textContent = `DESCRIPCION ${tipo}`;
+            btnGuardar.value = `Guardar ${tipo}`;
+
+            const tiposConEstilo = ['OPI', 'WI', 'SOP'];
+            formNuevaOpi.dataset.tipo = tiposConEstilo.includes(tipo) ? tipo : 'DEFAULT';
+
+            const esPDL = tipo === 'PDL';
+            btnAddForm.classList.toggle('hidden', !esPDL);
+            formNuevaOpi.classList.toggle('pdl-compact', esPDL);
+            bloqueDescripcionPrincipal.classList.toggle('hidden', esPDL);
+            bloquePuestosPrincipal.classList.toggle('hidden', esPDL);
+            extrasPanel.classList.toggle('hidden', !esPDL);
+            actualizarControlesExtras();
+        }
+
+        btnAddForm.addEventListener('click', crearFormularioExtra);
+        btnRemoveForm.addEventListener('click', eliminarUltimoFormularioExtra);
+        tipoInput.addEventListener('input', actualizarVistaReactiva);
+        idInput.addEventListener('input', actualizarVistaReactiva);
+        versionInput.addEventListener('input', actualizarVistaReactiva);
+        actualizarVistaReactiva();
     </script>
     <script>
         const tiempoInactividad = 15 * 60 * 1000; // 15 min en milisegundos

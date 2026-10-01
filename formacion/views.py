@@ -7,7 +7,7 @@ from .models import *
 from .forms import *
 from copy import copy
 from django.utils import timezone
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
@@ -137,6 +137,99 @@ def _opi_firmas_operarios_completas(registro_opi):
     firmas_dict = registro_opi.firmas if isinstance(registro_opi.firmas, dict) else {}
     operarios_firmados = {nombre for nombre in operarios_objetivo if nombre in firmas_dict}
     return operarios_objetivo.issubset(operarios_firmados)
+
+
+def _es_opi_pdl_padre(registro_opi):
+    return bool(registro_opi and getattr(registro_opi, 'es_pdl_padre', False))
+
+
+def _obtener_hijas_opi(registro_opi):
+    if not registro_opi:
+        return opis.objects.none()
+    if not _es_opi_pdl_padre(registro_opi):
+        return opis.objects.none()
+    return opis.objects.filter(pdl_padre=registro_opi.OPI, es_pdl_padre=False).order_by('OPI')
+
+
+def _obtener_hijas_nuevas_opi(pdl_nombre):
+    return nuevas_opis.objects.filter(pdl_padre=pdl_nombre, es_pdl_padre=False).order_by('OPI')
+
+
+def _tecnicos_pendientes_para_opi(registro_opi):
+    secciones = [
+        registro_opi.SECCION1,
+        registro_opi.SECCION2,
+        registro_opi.SECCION3,
+        registro_opi.SECCION4,
+        registro_opi.SECCION5,
+        registro_opi.SECCION6,
+        registro_opi.SECCION7,
+    ]
+    formados_dict = registro_opi.formados if isinstance(registro_opi.formados, dict) else {}
+    pendientes = set()
+
+    for operario in polivalencia.objects.all():
+        if operario.OPERARIO in formados_dict:
+            continue
+        for seccion in secciones:
+            if not seccion or not hasattr(operario, seccion):
+                continue
+            field_value = getattr(operario, seccion)
+            if isinstance(field_value, int) and field_value not in [0, 1]:
+                pendientes.add(operario.OPERARIO)
+                break
+
+    return pendientes
+
+
+def _build_opi_nombre(tipo, identificador, version):
+    tipo = (tipo or '').strip().upper() or 'OPI'
+    identificador = (identificador or '').strip().upper()
+    version = (version or '').strip().upper()
+    return f"{tipo}-{identificador} [{version}]"
+
+
+def _intentar_promover_pdl(pdl_nombre, request):
+    pdl_pendiente = nuevas_opis.objects.filter(OPI=pdl_nombre, es_pdl_padre=True).first()
+    if not pdl_pendiente:
+        return
+
+    if pdl_pendiente.pdl_bloqueado:
+        return
+
+    hijas_pendientes = list(_obtener_hijas_nuevas_opi(pdl_nombre))
+    hijas_aprobadas = list(opis.objects.filter(pdl_padre=pdl_nombre, es_pdl_padre=False))
+
+    if hijas_pendientes:
+        return
+
+    if not hijas_aprobadas:
+        messages.error(request, f'El PDL {pdl_nombre} no puede continuar: al menos una OPI asociada fue rechazada por completo.')
+        return
+
+    pdl_obj = opis.objects.filter(OPI=pdl_nombre, es_pdl_padre=True).first()
+    if pdl_obj:
+        return
+
+    opis.objects.create(
+        OPI=pdl_pendiente.OPI,
+        pdl_padre='',
+        es_pdl_padre=True,
+        INFO=pdl_pendiente.INFO,
+        SECCION1='',
+        SECCION2='',
+        SECCION3='',
+        SECCION4='',
+        SECCION5='',
+        SECCION6='',
+        SECCION7='',
+        formados={},
+        firmas={},
+        creado_por=pdl_pendiente.creado_por,
+        modificado_por=request.user,
+    )
+    pdl_pendiente.delete()
+
 
 
 opi_a_mod = []
@@ -505,34 +598,69 @@ def formacion_opis(request):
 
         if opi:
             opi_obj = opis.objects.filter(OPI=opi).first()
-            opi_a_mod = opi_obj
+            opi_a_mod = opi_obj.OPI if opi_obj else []
             _, formador_opi, firma_formador_opi_path = _obtener_datos_firma_formador_opi(opi_obj)
             firma_formador_opi_guardada = bool(formador_opi and firma_formador_opi_path)
-            secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
+            if _es_opi_pdl_padre(opi_obj):
+                hijas = list(_obtener_hijas_opi(opi_obj))
+                pendientes_union = set()
+                formados_agregados = {}
+                objetivos_por_hija = {}
 
-            formados_dict = opi_obj.formados if isinstance(opi_obj.formados, dict) else {}
-            firmas_dict = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
+                for hija in hijas:
+                    pendientes_union.update(_tecnicos_pendientes_para_opi(hija))
+                    objetivos_por_hija[hija.OPI] = _operarios_objetivo_opi(hija)
+                    formados_hija = hija.formados if isinstance(hija.formados, dict) else {}
+                    for nombre, fecha in formados_hija.items():
+                        if nombre and nombre not in formados_agregados:
+                            formados_agregados[nombre] = fecha
 
-            for nombre, fecha in formados_dict.items():
-                formados_info.append({'nombre': nombre, 'fecha': fecha})
+                for nombre in sorted(pendientes_union):
+                    opis_info.append({'nombre': nombre})
 
-            for operario in polivalencia.objects.all():
-                if operario.OPERARIO in formados_dict:
-                    if operario.OPERARIO not in firmas_dict:
-                        sin_firma_info.append(operario.OPERARIO)
-                    elif operario.OPERARIO in firmas_dict:
-                        firma_info.append({'nombre': operario.OPERARIO, 'firma': firmas_dict[operario.OPERARIO]})
-                    continue
+                for nombre in sorted(formados_agregados.keys()):
+                    formados_info.append({'nombre': nombre, 'fecha': formados_agregados[nombre]})
+                    falta_firma = False
+                    for hija in hijas:
+                        objetivos_hija = objetivos_por_hija.get(hija.OPI, set())
+                        if nombre not in objetivos_hija:
+                            continue
+                        firmas_hija = hija.firmas if isinstance(hija.firmas, dict) else {}
+                        if nombre not in firmas_hija:
+                            falta_firma = True
+                            break
 
-                valores_validos = {}
-                for seccion in secciones:
-                    if hasattr(operario, seccion):
-                        field_value = getattr(operario, seccion)
-                        if isinstance(field_value, int) and field_value not in [0, 1]:
-                            valores_validos[seccion] = field_value
+                    if falta_firma:
+                        sin_firma_info.append(nombre)
+                    else:
+                        firmas_pdl = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
+                        firma_info.append({'nombre': nombre, 'firma': firmas_pdl.get(nombre, '')})
+            else:
+                secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
 
-                if valores_validos:
-                    opis_info.append({'nombre': operario.OPERARIO})
+                formados_dict = opi_obj.formados if isinstance(opi_obj.formados, dict) else {}
+                firmas_dict = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
+
+                for nombre, fecha in formados_dict.items():
+                    formados_info.append({'nombre': nombre, 'fecha': fecha})
+
+                for operario in polivalencia.objects.all():
+                    if operario.OPERARIO in formados_dict:
+                        if operario.OPERARIO not in firmas_dict:
+                            sin_firma_info.append(operario.OPERARIO)
+                        elif operario.OPERARIO in firmas_dict:
+                            firma_info.append({'nombre': operario.OPERARIO, 'firma': firmas_dict[operario.OPERARIO]})
+                        continue
+
+                    valores_validos = {}
+                    for seccion in secciones:
+                        if hasattr(operario, seccion):
+                            field_value = getattr(operario, seccion)
+                            if isinstance(field_value, int) and field_value not in [0, 1]:
+                                valores_validos[seccion] = field_value
+
+                    if valores_validos:
+                        opis_info.append({'nombre': operario.OPERARIO})
         else:
             # Evita reutilizar una OPI previa cuando no hay selección actual.
             opi_a_mod = []
@@ -571,12 +699,23 @@ def formacion_opis(request):
                 filtro |= Q(**{f'SECCION{i}': puesto_seleccionado})
 
             puesto_a_buscar = opis.objects.filter(filtro)
+            nombres_agregados = set()
 
             # Agregar cada OPI con su estado de firmas para mostrarlo en la vista.
             for opi in puesto_a_buscar:
+                opi_mostrada = opi
+                if opi.pdl_padre:
+                    padre = opis.objects.filter(OPI=opi.pdl_padre, es_pdl_padre=True).first()
+                    if padre:
+                        opi_mostrada = padre
+
+                if opi_mostrada.OPI in nombres_agregados:
+                    continue
+                nombres_agregados.add(opi_mostrada.OPI)
+
                 puesto_info.append({
-                    'nombre': opi.OPI,
-                    'firmas_completas': _opi_firmas_operarios_completas(opi)
+                    'nombre': opi_mostrada.OPI,
+                    'firmas_completas': _opi_firmas_operarios_completas(opi_mostrada)
                 })
 
 
@@ -626,29 +765,126 @@ def nueva_opi(request):
 @groups_required('admin', 'formacion')
 @login_required
 def guardar_opi(request):
-    if request.method == 'POST':
-        TIPO = request.POST['tipo'].upper()
-        ID = request.POST['ID'].upper()
-        VERSION = request.POST['version'].upper()
-        INFO = request.POST['INFO'].upper()
-        SECCION1 = request.POST['SECCION1']
-        SECCION2 = request.POST['SECCION2']
-        SECCION3 = request.POST['SECCION3']
-        SECCION4 = request.POST['SECCION4']
-        SECCION5 = request.POST['SECCION5']
-        SECCION6 = request.POST['SECCION6']
-        SECCION7 = request.POST['SECCION7']
+    if request.method != 'POST':
+        return redirect(formacion_opis)
 
-        if not TIPO:
-            TIPO = 'OPI'
+    tipo_principal = (request.POST.get('tipo') or '').strip().upper() or 'OPI'
+    id_principal = (request.POST.get('ID') or '').strip().upper()
+    version_principal = (request.POST.get('version') or '').strip().upper()
+    info_principal = (request.POST.get('INFO') or '').strip().upper()
 
-        OPI = f"{TIPO}-{ID} [{VERSION}]"
+    if not id_principal or not version_principal:
+        messages.error(request, 'Debes completar al menos Tipo, ID y Versión en el formulario principal.')
+        return redirect('nueva_opi')
 
-    datos = nuevas_opis(OPI=OPI, INFO=INFO, SECCION1=SECCION1, SECCION2=SECCION2, SECCION3=SECCION3, SECCION4=SECCION4, SECCION5=SECCION5, SECCION6=SECCION6, SECCION7=SECCION7)
-    datos.creado_por = request.user
-    datos.save()
-    
-    messages.add_message(request, messages.INFO, 'OPI guardada correctamente, Esperando la validación del supervisor.')
+    opi_principal = _build_opi_nombre(tipo_principal, id_principal, version_principal)
+
+    payload_principal = {
+        'OPI': opi_principal,
+        'INFO': info_principal,
+        'SECCION1': request.POST.get('SECCION1', ''),
+        'SECCION2': request.POST.get('SECCION2', ''),
+        'SECCION3': request.POST.get('SECCION3', ''),
+        'SECCION4': request.POST.get('SECCION4', ''),
+        'SECCION5': request.POST.get('SECCION5', ''),
+        'SECCION6': request.POST.get('SECCION6', ''),
+        'SECCION7': request.POST.get('SECCION7', ''),
+    }
+
+    extra_indices = sorted({
+        int(match.group(1))
+        for key in request.POST.keys()
+        for match in [re.match(r'^extra_(\d+)_tipo$', key)]
+        if match
+    })
+
+    payload_hijas = []
+    for idx in extra_indices:
+        prefijo = f'extra_{idx}_'
+        tipo_hija = (request.POST.get(f'{prefijo}tipo') or '').strip().upper() or 'OPI'
+        id_hija = (request.POST.get(f'{prefijo}ID') or '').strip().upper()
+        version_hija = (request.POST.get(f'{prefijo}version') or '').strip().upper()
+
+        if not id_hija or not version_hija:
+            continue
+
+        payload_hijas.append({
+            'OPI': _build_opi_nombre(tipo_hija, id_hija, version_hija),
+            'INFO': (request.POST.get(f'{prefijo}INFO') or '').strip().upper(),
+            'SECCION1': request.POST.get(f'{prefijo}SECCION1', ''),
+            'SECCION2': request.POST.get(f'{prefijo}SECCION2', ''),
+            'SECCION3': request.POST.get(f'{prefijo}SECCION3', ''),
+            'SECCION4': request.POST.get(f'{prefijo}SECCION4', ''),
+            'SECCION5': request.POST.get(f'{prefijo}SECCION5', ''),
+            'SECCION6': request.POST.get(f'{prefijo}SECCION6', ''),
+            'SECCION7': request.POST.get(f'{prefijo}SECCION7', ''),
+        })
+
+    nombres_a_crear = [payload_principal['OPI']] + [p['OPI'] for p in payload_hijas]
+    if len(nombres_a_crear) != len(set(nombres_a_crear)):
+        messages.error(request, 'Hay OPIs duplicadas en el alta. Revisa Tipo/ID/Versión.')
+        return redirect('nueva_opi')
+
+    nombres_existentes = set(nuevas_opis.objects.filter(OPI__in=nombres_a_crear).values_list('OPI', flat=True))
+    nombres_existentes.update(set(opis.objects.filter(OPI__in=nombres_a_crear).values_list('OPI', flat=True)))
+    if nombres_existentes:
+        messages.error(request, f'Ya existen OPIs con estos nombres: {", ".join(sorted(nombres_existentes))}.')
+        return redirect('nueva_opi')
+
+    try:
+        with transaction.atomic():
+            if tipo_principal == 'PDL':
+                padre = nuevas_opis.objects.create(
+                    OPI=payload_principal['OPI'],
+                    pdl_padre='',
+                    es_pdl_padre=True,
+                    INFO=payload_principal['INFO'],
+                    SECCION1='',
+                    SECCION2='',
+                    SECCION3='',
+                    SECCION4='',
+                    SECCION5='',
+                    SECCION6='',
+                    SECCION7='',
+                    creado_por=request.user,
+                )
+
+                for hija in payload_hijas:
+                    nuevas_opis.objects.create(
+                        OPI=hija['OPI'],
+                        pdl_padre=padre.OPI,
+                        es_pdl_padre=False,
+                        INFO=hija['INFO'],
+                        SECCION1=hija['SECCION1'],
+                        SECCION2=hija['SECCION2'],
+                        SECCION3=hija['SECCION3'],
+                        SECCION4=hija['SECCION4'],
+                        SECCION5=hija['SECCION5'],
+                        SECCION6=hija['SECCION6'],
+                        SECCION7=hija['SECCION7'],
+                        creado_por=request.user,
+                    )
+
+                messages.info(request, f'PDL {padre.OPI} guardado con {len(payload_hijas)} OPI(s) asociada(s). Pendiente de validación de supervisión.')
+            else:
+                nuevas_opis.objects.create(
+                    OPI=payload_principal['OPI'],
+                    pdl_padre='',
+                    es_pdl_padre=False,
+                    INFO=payload_principal['INFO'],
+                    SECCION1=payload_principal['SECCION1'],
+                    SECCION2=payload_principal['SECCION2'],
+                    SECCION3=payload_principal['SECCION3'],
+                    SECCION4=payload_principal['SECCION4'],
+                    SECCION5=payload_principal['SECCION5'],
+                    SECCION6=payload_principal['SECCION6'],
+                    SECCION7=payload_principal['SECCION7'],
+                    creado_por=request.user,
+                )
+                messages.info(request, 'OPI guardada correctamente, Esperando la validación del supervisor.')
+    except IntegrityError:
+        messages.error(request, 'No se pudo guardar la OPI/PDL por un conflicto de datos. Revisa duplicados e inténtalo de nuevo.')
+
     return redirect(formacion_opis)
 
 @groups_required('admin', 'supervisores')
@@ -656,7 +892,7 @@ def guardar_opi(request):
 def listar_opis(request):
     global puestos_dict
 
-    opis_qs = nuevas_opis.objects.all().order_by('OPI')
+    opis_qs = nuevas_opis.objects.filter(es_pdl_padre=False).order_by('OPI')
 
     opis_lista = []
     for opi in opis_qs:
@@ -677,8 +913,13 @@ def listar_opis(request):
                 else:
                     secciones_pendientes.append(valor)
 
+        nombre = opi.OPI
+        if opi.pdl_padre:
+            nombre = f"{opi.OPI} (PDL: {opi.pdl_padre})"
+
         opis_lista.append({
-            'nombre': opi.OPI,
+            'nombre': nombre,
+            'nombre_real': opi.OPI,
             'secciones_aceptadas': secciones_aceptadas,
             'secciones_rechazadas': secciones_rechazadas,
             'secciones_pendientes': secciones_pendientes,
@@ -758,13 +999,19 @@ def aceptar_opi(request):
 
         opi_nueva = opis.objects.create(
             OPI=opi_obj.OPI,
+            pdl_padre=opi_obj.pdl_padre,
+            es_pdl_padre=False,
             INFO=opi_obj.INFO,
             formados={},
             firmas={},
             creado_por=request.user,
             **campos_seccion
         )
+        pdl_padre = opi_obj.pdl_padre
         opi_obj.delete()
+
+        if pdl_padre:
+            _intentar_promover_pdl(pdl_padre, request)
     else:
         messages.success(request, f'{opi_nombre} aceptada para puesto {puesto_traducido}.')
         Notificacion.objects.create(
@@ -823,12 +1070,24 @@ def rechazar_opi(request):
             seccion for seccion in secciones_asociadas if ok_dict.get(seccion) == 'ko'
         ]
         if not secciones_aceptadas:
+            if opi_obj.pdl_padre:
+                padre_pendiente = nuevas_opis.objects.filter(OPI=opi_obj.pdl_padre, es_pdl_padre=True).first()
+                if padre_pendiente:
+                    padre_pendiente.pdl_bloqueado = True
+                    padre_pendiente.modificado_por = request.user
+                    padre_pendiente.save(update_fields=['pdl_bloqueado', 'modificado_por', 'modificado_en'])
             opi_obj.delete()
             Notificacion.objects.create(
             grupo=Group.objects.get(name='formacion'),  # grupo
             creado_por=request.user,
             mensaje=f'❌{opi_nombre} RECHAZADA por TODOS, eliminada del sistema❌'
             )
+            if opi_obj.pdl_padre:
+                Notificacion.objects.create(
+                    grupo=Group.objects.get(name='formacion'),
+                    creado_por=request.user,
+                    mensaje=f'❌El PDL {opi_obj.pdl_padre} queda bloqueado: {opi_nombre} fue rechazada por completo❌'
+                )
             return redirect('listar_opis')
         else:
             Notificacion.objects.create(
@@ -845,13 +1104,19 @@ def rechazar_opi(request):
 
         opi_nueva = opis.objects.create(
             OPI=opi_obj.OPI,
+            pdl_padre=opi_obj.pdl_padre,
+            es_pdl_padre=False,
             INFO=opi_obj.INFO,
             formados={},
             firmas={},
             creado_por=request.user,
             **campos_seccion
         )
+        pdl_padre = opi_obj.pdl_padre
         opi_obj.delete()
+
+        if pdl_padre:
+            _intentar_promover_pdl(pdl_padre, request)
     else:
         messages.success(request, f'{opi_nombre} rechazada para puesto {puesto_traducido}.')
         Notificacion.objects.create(
@@ -866,7 +1131,7 @@ def rechazar_opi(request):
 @login_required
 def introducir_fecha(request):
     global opi_a_mod
-    opi = opi_a_mod  # ID de la OPI que se modificará
+    opi = (request.GET.get('opi') or getattr(opi_a_mod, 'OPI', opi_a_mod) or '').strip()
     operario = request.GET.get('operario')  # Nombre del operario
 
     return render(request, 'introducir_fecha.html', {'opi': opi, 'operario': operario})
@@ -874,27 +1139,29 @@ def introducir_fecha(request):
 @groups_required('admin', 'formacion')
 @login_required
 def guardar_fecha(request):
-    global opi_a_mod
     if request.method == "POST":
-        opi_id = opis.objects.filter(OPI=opi_a_mod).first()
-        opi_id = opi_id.id
+        opi_nombre = (request.POST.get('opi') or getattr(opi_a_mod, 'OPI', opi_a_mod) or '').strip()
         operario = request.POST.get("operario")
         fecha = request.POST.get("fecha")
 
-        # Buscar la OPI a modificar
-        opi = get_object_or_404(opis, id=opi_id)
+        opi = get_object_or_404(opis, OPI=opi_nombre)
 
-        # Actualizar el diccionario en el campo JSON
-        if not opi.formados:
-            opi.formados = {}  # Crear un diccionario si está vacío
+        objetivos = [opi]
+        if _es_opi_pdl_padre(opi):
+            objetivos = [opi]
+            for hija in _obtener_hijas_opi(opi):
+                if operario in _operarios_objetivo_opi(hija):
+                    objetivos.append(hija)
 
-        opi.formados[operario] = fecha  # Agregar/modificar operario:fecha
+        for opi_obj in objetivos:
+            if not opi_obj.formados:
+                opi_obj.formados = {}
+            opi_obj.formados[operario] = fecha
+            opi_obj.modificado_por = request.user
+            opi_obj.save()
 
-        opi.modificado_por = request.user
-        opi.save()  # Guardar cambios en la BBDD
-
-        messages.add_message(request, messages.INFO, f'{operario} completó: {opi_a_mod}')
-        return redirect(f"{reverse('formacion_opis')}?opi={opi_a_mod}")  # Redirigir a la página anterior
+        messages.add_message(request, messages.INFO, f'{operario} completó: {opi_nombre}')
+        return redirect(f"{reverse('formacion_opis')}?opi={opi_nombre}")
 
 @groups_required('admin', 'formacion', 'tecnicos')
 @login_required
@@ -1080,6 +1347,80 @@ def _guardar_firma_base64(imagen_base64, output_path):
         f.write(base64.b64decode(imgstr))
 
 
+def _generar_pdf_formacion_opi(opi_obj, opi_nombre_mostrado, info_formacion, operario, imagen_base64, dni, formador, firma_formador_path, request_user):
+    fecha_guardada = (opi_obj.formados if isinstance(opi_obj.formados, dict) else {}).get(operario, '')
+    try:
+        fecha_dt = datetime.strptime(str(fecha_guardada), "%Y-%m-%d")
+        fecha_texto = fecha_dt.strftime("%d-%b-%Y")
+    except (TypeError, ValueError):
+        fecha_texto = datetime.now().strftime("%d-%b-%Y")
+
+    hora = datetime.now().strftime("%H:%M")
+
+    try:
+        _, imgstr = imagen_base64.split(';base64,')
+        img_bytes = base64.b64decode(imgstr)
+    except ValueError as exc:
+        raise ValueError('Formato base64 inválido para la firma del operario.') from exc
+
+    img_stream = BytesIO(img_bytes)
+    template_path = shared_plantillas_path('plantilla_opis.docx')
+    doc = Document(template_path)
+
+    def process_paragraph(paragraph, replacements, image_stream):
+        text = paragraph.text
+        if '{{imagen}}' in text:
+            parts = text.split('{{imagen}}')
+            paragraph.clear()
+            if parts[0]:
+                paragraph.add_run(parts[0])
+            run = paragraph.add_run()
+            run.add_picture(image_stream, width=Inches(2.5))
+            if len(parts) > 1 and parts[1]:
+                paragraph.add_run(parts[1])
+        else:
+            for key, value in replacements.items():
+                text = text.replace(key, str(value))
+            paragraph.text = text
+
+    replacements = {
+        '{{fecha}}': fecha_texto,
+        '{{opi_a_mod}}': opi_nombre_mostrado,
+        '{{hora}}': hora,
+        '{{info_formacion}}': info_formacion,
+        '{{operario}}': operario,
+        '{{dni}}': dni,
+        '{{formador}}': formador
+    }
+
+    for paragraph in doc.paragraphs:
+        process_paragraph(paragraph, replacements, img_stream)
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    process_paragraph(paragraph, replacements, img_stream)
+
+    _insertar_imagen_placeholder(doc, 'firma_formador', firma_formador_path, width=1.8)
+
+    output_directory = shared_media_path('firmas_opis', opi_obj.OPI)
+    os.makedirs(output_directory, exist_ok=True)
+    output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_obj.OPI}.docx")
+    doc.save(output_path)
+    pdf_output_path = output_path.replace('.docx', '.pdf')
+    convertir_docx_a_pdf(output_path, pdf_output_path)
+    os.remove(output_path)
+
+    if not opi_obj.firmas:
+        opi_obj.firmas = {}
+    opi_obj.firmas[operario] = pdf_output_path
+    opi_obj.modificado_por = request_user
+    opi_obj.save()
+
+    return pdf_output_path
+
+
 def _obtener_opis_relacionadas(puesto):
     filtros = (
         Q(SECCION1=puesto) |
@@ -1122,114 +1463,68 @@ def subir_firma(request):
             return redirect('formacion_opis')
 
         opi_obj = get_object_or_404(opis, OPI=opi_nombre)
-        opi_id = opi_obj.id
-        info_formacion = opi_obj.INFO
         operario = request.POST.get("operario")
         imagen_base64 = request.POST.get("imagen")
-        dni = request.POST.get("dni").strip().upper() 
+        dni = (request.POST.get("dni") or '').strip().upper()
 
-        # Buscar la OPI a modificar
-        opi = get_object_or_404(opis, id=opi_id)
-        firmas, formador, firma_formador_path = _obtener_datos_firma_formador_opi(opi)
+        firmas, formador, firma_formador_path = _obtener_datos_firma_formador_opi(opi_obj)
 
         if not formador or not firma_formador_path:
             messages.add_message(request, messages.ERROR, 'No hay una firma de formador guardada para esta OPI. Debes registrarla de nuevo.')
             return HttpResponseRedirect(f"{reverse('firmar_formador_opi')}?{urlencode({'opi': opi_nombre})}")
 
-        # Obtener la fecha del diccionario formados
-        fecha = opi.formados.get(operario, '')
-        # Convertir la cadena a objeto datetime
-        fecha = datetime.strptime(fecha, "%Y-%m-%d")
-        # Formatear la fecha en el formato deseado
-        fecha = fecha.strftime("%d-%b-%Y")
-
-        # Obtener la hora actual
-        hora = datetime.now().strftime("%H:%M")
-
-        # Decodificar la imagen base64 y almacenarla en memoria (BytesIO)
         try:
-            format, imgstr = imagen_base64.split(';base64,')
-            img_bytes = base64.b64decode(imgstr)
-            img_stream = BytesIO(img_bytes)  # Mantener la imagen en memoria
+            if _es_opi_pdl_padre(opi_obj):
+                hijas_aplicables = []
+                for hija in _obtener_hijas_opi(opi_obj):
+                    if operario in _operarios_objetivo_opi(hija):
+                        hijas_aplicables.append(hija)
 
-            # Rellenar la plantilla .docx
-            # template_path = r"C:\sonova\formaciones\media\plantillas\plantilla_opis.docx"
-            template_path = shared_plantillas_path('plantilla_opis.docx')
-            doc = Document(template_path)
+                info_formacion_pdl = ', '.join([h.OPI for h in hijas_aplicables]) or opi_obj.INFO
 
-            # Función para reemplazar texto en párrafos y manejar imágenes
-            def process_paragraph(paragraph, replacements, image_stream):
-                text = paragraph.text
-                if '{{imagen}}' in text:
-                    # Separar el texto antes y después de {{imagen}}
-                    parts = text.split('{{imagen}}')
-                    paragraph.clear()
+                _generar_pdf_formacion_opi(
+                    opi_obj=opi_obj,
+                    opi_nombre_mostrado=opi_obj.OPI,
+                    info_formacion=info_formacion_pdl,
+                    operario=operario,
+                    imagen_base64=imagen_base64,
+                    dni=dni,
+                    formador=formador,
+                    firma_formador_path=firma_formador_path,
+                    request_user=request.user,
+                )
 
-                    # Restaurar el texto antes de la imagen (si hay algo)
-                    if parts[0]:
-                        paragraph.add_run(parts[0])
+                for hija in hijas_aplicables:
+                    _generar_pdf_formacion_opi(
+                        opi_obj=hija,
+                        opi_nombre_mostrado=hija.OPI,
+                        info_formacion=hija.INFO,
+                        operario=operario,
+                        imagen_base64=imagen_base64,
+                        dni=dni,
+                        formador=formador,
+                        firma_formador_path=firma_formador_path,
+                        request_user=request.user,
+                    )
 
-                    # Insertar la imagen desde la memoria
-                    run = paragraph.add_run()
-                    run.add_picture(image_stream, width=Inches(2.5))
+                messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en el PDL {opi_nombre} y en {len(hijas_aplicables)} OPI(s) asociada(s). Hasta la próxima!')
+            else:
+                _generar_pdf_formacion_opi(
+                    opi_obj=opi_obj,
+                    opi_nombre_mostrado=opi_nombre,
+                    info_formacion=opi_obj.INFO,
+                    operario=operario,
+                    imagen_base64=imagen_base64,
+                    dni=dni,
+                    formador=formador,
+                    firma_formador_path=firma_formador_path,
+                    request_user=request.user,
+                )
 
-                    # Restaurar el texto después de la imagen (si hay algo)
-                    if len(parts) > 1 and parts[1]:
-                        paragraph.add_run(parts[1])
-                else:
-                    # Reemplazar otras etiquetas normalmente
-                    for key, value in replacements.items():
-                        text = text.replace(key, str(value))
-                    paragraph.text = text
+                if _opi_firmas_operarios_completas(opi_obj):
+                    _limpiar_firma_formador_opi(opi_obj)
 
-            # Diccionario con los valores a reemplazar
-            replacements = {
-                '{{fecha}}': fecha,
-                '{{opi_a_mod}}': opi_nombre,
-                '{{hora}}': hora,
-                '{{info_formacion}}': info_formacion,
-                '{{operario}}': operario,
-                '{{dni}}': dni,
-                '{{formador}}': formador
-            }
-
-            # Aplicar reemplazo en párrafos
-            for paragraph in doc.paragraphs:
-                process_paragraph(paragraph, replacements, img_stream)
-
-            # Aplicar reemplazo en tablas también
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for paragraph in cell.paragraphs:
-                            process_paragraph(paragraph, replacements, img_stream)
-
-            # Insertar la firma del formador soportando placeholders con/sin espacios.
-            _insertar_imagen_placeholder(doc, 'firma_formador', firma_formador_path, width=1.8)
-
-            # Guardar el documento modificado
-            # output_directory = os.path.join(settings.MEDIA_ROOT, 'firmas_opis', str(opi_a_mod))
-            output_directory = shared_media_path('firmas_opis', opi_nombre)
-            os.makedirs(output_directory, exist_ok=True)
-            output_path = os.path.join(output_directory, f"{operario}_acta_formacion_{opi_nombre}.docx")
-            doc.save(output_path) # Guardar el archivo .docx
-            pdf_output_path = output_path.replace(".docx", ".pdf")
-            convertir_docx_a_pdf(output_path, pdf_output_path) # Convertir a PDF
-            os.remove(output_path)  # Eliminar el archivo .docx
-
-            # Actualizar el diccionario en el campo JSON
-            if not opi.firmas:
-                opi.firmas = {}  # Crear un diccionario si está vacío
-
-            opi.firmas[operario] = output_path  # Agregar/modificar nombre:ruta_imagen
-
-            opi.modificado_por = request.user
-            opi.save()  # Guardar cambios en la BBDD
-
-            if _opi_firmas_operarios_completas(opi):
-                _limpiar_firma_formador_opi(opi)
-
-            messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_nombre}. Hasta la próxima!')
+                messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_nombre}. Hasta la próxima!')
         except ValueError as e:
             print(f"Error al decodificar la imagen base64: {e}")
             messages.add_message(request, messages.ERROR, 'Error al guardar la firma. Por favor, inténtalo de nuevo.')

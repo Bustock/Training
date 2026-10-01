@@ -173,8 +173,8 @@
                         {% for seccion in opi.secciones_pendientes %}
                             <li>
                                 {{ seccion }}
-                                <a href="{% url 'aceptar_opi' %}?opi_nombre={{ opi.nombre|urlencode }}&puesto={{ seccion|urlencode }}" class="button-aceptar button-pop">✅ Aceptar</a>
-                                <a href="{% url 'rechazar_opi' %}?opi_nombre={{ opi.nombre|urlencode }}&puesto={{ seccion|urlencode }}" class="button-rechazar button-pop">❌ Rechazar</a>
+                                <a href="{% url 'aceptar_opi' %}?opi_nombre={{ opi.nombre_real|urlencode }}&puesto={{ seccion|urlencode }}" class="button-aceptar button-pop">✅ Aceptar</a>
+                                <a href="{% url 'rechazar_opi' %}?opi_nombre={{ opi.nombre_real|urlencode }}&puesto={{ seccion|urlencode }}" class="button-rechazar button-pop">❌ Rechazar</a>
                             </li>
                         {% endfor %}
                     </ul>

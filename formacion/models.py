@@ -69,6 +69,9 @@ class polivalencia(models.Model):
 
 class nuevas_opis(models.Model):
     OPI = models.CharField(max_length=100, unique=True)
+    pdl_padre = models.CharField(max_length=100, blank=True, default='')
+    es_pdl_padre = models.BooleanField(default=False)
+    pdl_bloqueado = models.BooleanField(default=False)
     INFO = models.CharField(max_length=800)
     SECCION1 = models.CharField(max_length=25)
     SECCION2 = models.CharField(max_length=25)
@@ -88,6 +91,8 @@ class nuevas_opis(models.Model):
 
 class opis(models.Model):
     OPI = models.CharField(max_length=100, unique=True)
+    pdl_padre = models.CharField(max_length=100, blank=True, default='')
+    es_pdl_padre = models.BooleanField(default=False)
     INFO = models.CharField(max_length=800)
     SECCION1 = models.CharField(max_length=25)
     SECCION2 = models.CharField(max_length=25)
