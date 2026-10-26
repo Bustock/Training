@@ -50,6 +50,18 @@
             margin-bottom: 16px;
         }
 
+        .fecha-inicio {
+            margin-bottom: 16px;
+        }
+
+        .fecha-inicio input {
+            width: min(320px, 100%);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            box-sizing: border-box;
+        }
+
         .fields input {
             width: 100%;
             padding: 8px;
@@ -161,6 +173,11 @@
                 <h1>ACTA INICIAL DE FORMACION</h1>
                 <p><strong>Operario:</strong> {{ operario }}</p>
                 <p><strong>Puesto:</strong> {{ puesto_traducido }}</p>
+            </div>
+
+            <div class="fecha-inicio">
+                <label for="fecha_inicio"><strong>Fecha de inicio de la formación</strong></label><br>
+                <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio }}" required>
             </div>
 
             <div class="fields">

@@ -32,6 +32,7 @@ puestos_dict = {
     'KIT_PREP_SDS': 'KIT PREPARATION SDS',
     'CLOSING_SDS': 'CLOSING SDS',
     'KIT_PREP_ITE': 'KIT PREPARATION ITE',
+    'KIT_PREP_ITE_R_TUBO': 'KIT PREPARATION ITE-R (sólo pegar tubo)',
     'CLOSING_ITE': 'CLOSING ITE',
     'CUT_TRIM': 'CUT & TRIM',
     'FL': 'FINISHING & LACQUERING',
@@ -180,7 +181,18 @@ class OpiForm(forms.Form):
                 operarios_formados = {nombre for nombre in formados_dict.keys() if nombre}
                 operarios_firmados = {nombre for nombre in firmas_dict.keys() if nombre}
 
-            secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
+            # Para PDL padre, recopilar las secciones de todas las OPIs hijas;
+            # así no dependemos de campos vacíos en la OPI padre y calculamos
+            # correctamente quién necesita formación.
+            if getattr(opi_obj, 'es_pdl_padre', False):
+                opis_hijas = opis.objects.filter(pdl_padre=opi_obj.OPI, es_pdl_padre=False)
+                secciones = []
+                for hija in opis_hijas:
+                    for s in (hija.SECCION1, hija.SECCION2, hija.SECCION3):
+                        if s and s not in secciones:
+                            secciones.append(s)
+            else:
+                secciones = [opi_obj.SECCION1, opi_obj.SECCION2, opi_obj.SECCION3]
 
             pendientes_por_firmar = operarios_formados - operarios_firmados
             pendientes_por_formar = set()
@@ -190,6 +202,8 @@ class OpiForm(forms.Form):
                     continue
 
                 for seccion in secciones:
+                    if not seccion:
+                        continue
                     if hasattr(operario, seccion):
                         field_value = getattr(operario, seccion)
                         if isinstance(field_value, int) and field_value not in [0, 1]:

@@ -263,6 +263,7 @@ puestos_dict = {
     'KIT_PREP_SDS': 'KIT PREPARATION SDS',
     'CLOSING_SDS': 'CLOSING SDS',
     'KIT_PREP_ITE': 'KIT PREPARATION ITE',
+    'KIT_PREP_ITE_R_TUBO': 'KIT PREPARATION ITE-R (sólo pegar tubo)',
     'CLOSING_ITE': 'CLOSING ITE',
     'CUT_TRIM': 'CUT & TRIM',
     'FL': 'FINISHING & LACQUERING',
@@ -382,7 +383,7 @@ def notificacion_leida(request, notificacion_id):
 def actualizar_matriz(request):
     # Usar rutas relativas al proyecto
     base_dir = settings.BASE_DIR
-    excel_file = os.path.join(base_dir, 'TPL-708 [4] RCSE Matriz de Polivalencia Operarios producción.xlsx')
+    excel_file = os.path.join(base_dir, 'TPL-708 [5] RCSE Matriz de Polivalencia Operarios producción 3.05 1.xlsx')
 
     # Mapeo de columnas entre el Excel y los campos de la base de datos
     column_mapping = {
@@ -413,6 +414,7 @@ def actualizar_matriz(request):
         'KIT PREP. SDS': 'KIT_PREP_SDS',
         'CLOSING SDS': 'CLOSING_SDS',
         'KIT PREP. ITE': 'KIT_PREP_ITE',
+        'KIT PREP. ITE-R (sólo pegar tubo)': 'KIT_PREP_ITE_R_TUBO',
         'CLOSING ITE': 'CLOSING_ITE',
         'CUT & TRIM': 'CUT_TRIM',
         'F&L': 'FL',
@@ -2573,6 +2575,13 @@ def firma_formacion_inicial(request):
         firmas = registro.firmas if registro and isinstance(registro.firmas, dict) else {}
         pdf_inicial_path = firmas.get('pdf_inicial')
         pdf_inicial_disponible = bool(pdf_inicial_path and os.path.exists(pdf_inicial_path))
+        fecha_hora_inicial = firmas.get('fecha_hora_inicial')
+        fecha_inicio = ''
+        if fecha_hora_inicial:
+            try:
+                fecha_inicio = datetime.fromisoformat(str(fecha_hora_inicial)).date().isoformat()
+            except (TypeError, ValueError):
+                fecha_inicio = ''
 
         return render(request, 'firma_formacion_inicial.html', {
             'operario': operario,
@@ -2580,6 +2589,7 @@ def firma_formacion_inicial(request):
             'puesto_traducido': puesto_traducido,
             'dni': firmas.get('dni_inicial', ''),
             'formador': firmas.get('formador_inicial', ''),
+            'fecha_inicio': fecha_inicio,
             'pdf_inicial_disponible': pdf_inicial_disponible,
         })
 
@@ -2588,6 +2598,7 @@ def firma_formacion_inicial(request):
         puesto = (request.POST.get('puesto') or '').strip()
         dni = (request.POST.get('dni') or '').strip().upper()
         formador = (request.POST.get('formador') or '').strip().upper()
+        fecha_inicio = (request.POST.get('fecha_inicio') or '').strip()
         firma_alumno_b64 = request.POST.get('firma_alumno')
         firma_formador_b64 = request.POST.get('firma_formador')
 
@@ -2599,8 +2610,14 @@ def firma_formacion_inicial(request):
         query_string = urlencode({'operario': operario, 'puesto': puesto})
         url_reintento = f"{base_url}?{query_string}"
 
-        if not dni or not formador or not firma_alumno_b64 or not firma_formador_b64:
-            messages.error(request, 'Debes completar DNI, formador y ambas firmas para generar el PDF inicial.')
+        if not dni or not formador or not fecha_inicio or not firma_alumno_b64 or not firma_formador_b64:
+            messages.error(request, 'Debes completar fecha de inicio, DNI, formador y ambas firmas para generar el PDF inicial.')
+            return HttpResponseRedirect(url_reintento)
+
+        try:
+            datetime.strptime(fecha_inicio, '%Y-%m-%d')
+        except ValueError:
+            messages.error(request, 'La fecha de inicio no es válida.')
             return HttpResponseRedirect(url_reintento)
 
         return render(request, 'generando_pdf.html', {
@@ -2613,6 +2630,7 @@ def firma_formacion_inicial(request):
                 'puesto': puesto,
                 'dni': dni,
                 'formador': formador,
+                'fecha_inicio': fecha_inicio,
                 'firma_alumno': firma_alumno_b64,
                 'firma_formador': firma_formador_b64,
             }
@@ -2635,6 +2653,7 @@ def generar_pdf_formacion_inicial(request):
     puesto = (request.POST.get('puesto') or '').strip()
     dni = (request.POST.get('dni') or '').strip().upper()
     formador = (request.POST.get('formador') or '').strip().upper()
+    fecha_inicio_str = (request.POST.get('fecha_inicio') or '').strip()
     firma_alumno_b64 = request.POST.get('firma_alumno')
     firma_formador_b64 = request.POST.get('firma_formador')
 
@@ -2646,8 +2665,14 @@ def generar_pdf_formacion_inicial(request):
     query_string = urlencode({'operario': operario, 'puesto': puesto})
     url_reintento = f"{base_url}?{query_string}"
 
-    if not dni or not formador or not firma_alumno_b64 or not firma_formador_b64:
-        messages.error(request, 'Debes completar DNI, formador y ambas firmas para generar el PDF inicial.')
+    if not dni or not formador or not fecha_inicio_str or not firma_alumno_b64 or not firma_formador_b64:
+        messages.error(request, 'Debes completar fecha de inicio, DNI, formador y ambas firmas para generar el PDF inicial.')
+        return HttpResponseRedirect(url_reintento)
+
+    try:
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+    except ValueError:
+        messages.error(request, 'La fecha de inicio no es válida.')
         return HttpResponseRedirect(url_reintento)
 
     plantilla_path = shared_plantillas_path('acta_formacion_inicial.docx')
@@ -2656,7 +2681,11 @@ def generar_pdf_formacion_inicial(request):
         return HttpResponseRedirect(url_reintento)
 
     puesto_traducido = puestos_dict.get(puesto, puesto)
-    fecha_hora = timezone.localtime(timezone.now())
+    fecha_hora_generacion = timezone.localtime(timezone.now())
+    fecha_hora_inicial = timezone.make_aware(
+        datetime.combine(fecha_inicio, fecha_hora_generacion.time()),
+        timezone.get_current_timezone(),
+    )
 
     firmas_dir = shared_media_path('form_completa', 'firmas_iniciales', operario, puesto)
     firma_alumno_path = os.path.join(firmas_dir, 'firma_alumno_inicial.png')
@@ -2674,9 +2703,9 @@ def generar_pdf_formacion_inicial(request):
 
         doc = Document(plantilla_path)
         replacements = {
-            'fecha': fecha_hora.strftime('%d-%b-%Y').upper(),
-            'hora': fecha_hora.strftime('%H:%M'),
-            'tiempo': fecha_hora.strftime('%H:%M'),
+            'fecha': fecha_hora_inicial.strftime('%d-%b-%Y').upper(),
+            'hora': fecha_hora_generacion.strftime('%H:%M'),
+            'tiempo': fecha_hora_generacion.strftime('%H:%M'),
             'puesto': puesto_traducido,
             'formador': formador,
             'operario': operario,
@@ -2729,9 +2758,9 @@ def generar_pdf_formacion_inicial(request):
         firmas.update({
             'dni_inicial': dni,
             'formador_inicial': formador,
-            'fecha_inicial': fecha_hora.strftime('%d-%b-%Y').upper(),
-            'hora_inicial': fecha_hora.strftime('%H:%M'),
-            'fecha_hora_inicial': fecha_hora.isoformat(),
+            'fecha_inicial': fecha_hora_inicial.strftime('%d-%b-%Y').upper(),
+            'hora_inicial': fecha_hora_generacion.strftime('%H:%M'),
+            'fecha_hora_inicial': fecha_hora_inicial.isoformat(),
             'pdf_inicial': pdf_output_path,
         })
 

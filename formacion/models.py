@@ -31,6 +31,7 @@ class polivalencia(models.Model):
     KIT_PREP_SDS = models.IntegerField(default=0)
     CLOSING_SDS = models.IntegerField(default=0)
     KIT_PREP_ITE = models.IntegerField(default=0)
+    KIT_PREP_ITE_R_TUBO = models.IntegerField(default=0)
     CLOSING_ITE = models.IntegerField(default=0)
     CUT_TRIM = models.IntegerField(default=0)
     FL = models.IntegerField(default=0)
