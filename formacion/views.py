@@ -2,7 +2,12 @@ import pandas as pd
 #import xlwings as xw
 #from openpyxl import Workbook, load_workbook
 #from openpyxl.styles import Alignment, Border, Side, PatternFill, Font
-import json, base64, os, re
+import base64
+import json
+import mimetypes
+import os
+import re
+import uuid
 from .models import *
 from .forms import *
 from copy import copy
@@ -24,7 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 from urllib.parse import urlencode
 from docx import Document
 from docx.shared import Inches
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from datetime import datetime
 from io import BytesIO
 from fpdf import FPDF
@@ -32,10 +37,10 @@ from PyPDF2 import PdfMerger
 import shutil
 
 
-#BASE_URL = r"C:\Git\Training"
-BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
-#BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")
-
+# Por defecto se usa el directorio base del proyecto (media/ local).
+# En servidor, definir TRAINING_SHARED_ROOT en settings (p. ej. r"\\es01sw31\APP Training Tool").
+BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', str(settings.BASE_DIR))
+#BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"D:\Training")
 
 def shared_path(*parts):
     return os.path.join(BASE_URL, *parts)
@@ -1708,41 +1713,41 @@ def cargar_teoria(puesto_seleccionado):
     with open(file_path, 'r', encoding='utf-8') as file:
         contenido = file.read()
 
-    # Dividir el contenido en bloques por cada pregunta
-    bloques_preguntas = contenido.strip().split("\n\n")  # Separar por líneas en blanco
+    imagenes_por_pregunta = {}
+    for imagen in _imagenes_examen(
+        shared_plantillas_path(),
+        os.path.join(base_path, 'imagenes', puesto_seleccionado),
+    ):
+        imagenes_por_pregunta.setdefault(imagen['numero'], []).append(imagen)
 
     preguntas = []
-    for bloque in bloques_preguntas:
-        lineas = bloque.strip().split("\n")  # Dividir cada bloque en líneas
-        if len(lineas) < 2:
-            continue  # Saltar bloques mal formateados
+    pregunta_actual = None
+    for linea in contenido.splitlines():
+        linea = linea.strip()
+        if not linea:
+            continue
 
-        # Extraer el número y texto de la pregunta
-        match_pregunta = re.match(r'^(\d+)-\s*(.+)', lineas[0])
-        if not match_pregunta:
-            continue  # Saltar si no coincide el formato esperado
-        numero = match_pregunta.group(1)
-        texto_pregunta = match_pregunta.group(2)
+        match_pregunta = re.match(r'^(\d+)-\s*(.+)', linea)
+        if match_pregunta:
+            pregunta_actual = {
+                'indice': int(match_pregunta.group(1)),
+                'texto': match_pregunta.group(2),
+                'opciones': [],
+                'respuesta_correcta': None,
+                'imagenes': imagenes_por_pregunta.get(int(match_pregunta.group(1)), []),
+            }
+            preguntas.append(pregunta_actual)
+            continue
 
-        # Extraer las opciones
-        opciones = []
-        respuesta_correcta = None
-        for linea in lineas[1:]:
-            match_opcion = re.match(r'^([A-H])-\s*(.+?)(\*?)$', linea) #[A-H] para letras de opciones, la H es el máximo
-            if match_opcion:
-                letra = match_opcion.group(1)
-                texto_opcion = match_opcion.group(2).strip()
-                es_correcta = match_opcion.group(3) == '*'
-                opciones.append({'letra': letra, 'texto': texto_opcion})
-                if es_correcta:
-                    respuesta_correcta = letra
-
-        preguntas.append({
-            'indice': int(numero),
-            'texto': texto_pregunta,
-            'opciones': opciones,
-            'respuesta_correcta': respuesta_correcta
-        })
+        match_opcion = re.match(r'^([A-H])-\s*(.+?)(\*?)$', linea)
+        if match_opcion and pregunta_actual:
+            letra = match_opcion.group(1)
+            pregunta_actual['opciones'].append({
+                'letra': letra,
+                'texto': match_opcion.group(2).strip(),
+            })
+            if match_opcion.group(3) == '*':
+                pregunta_actual['respuesta_correcta'] = letra
 
     return preguntas, None
 
@@ -1907,12 +1912,19 @@ def cargar_practica(puesto_seleccionado):
     with open(file_path, 'r', encoding='utf-8') as file:
         contenido = file.read()
 
-    bloques_cuestion = contenido.strip().split("\n\n")
+    imagenes_por_pregunta = {}
+    for imagen in _imagenes_examen(
+        shared_plantillas_path(),
+        os.path.join(base_path, 'imagenes', puesto_seleccionado),
+    ):
+        imagenes_por_pregunta.setdefault(imagen['numero'], []).append(imagen)
 
     cuestiones = []
-    for bloque in bloques_cuestion:
-        linea = bloque.strip()
-        
+    for linea in contenido.splitlines():
+        linea = linea.strip()
+        if not linea:
+            continue
+
         # Buscar formato: número-guion-espacio-texto
         match_cuestion = re.match(r'^(\d+)-\s*(.+)', linea)
         if not match_cuestion:
@@ -1924,6 +1936,7 @@ def cargar_practica(puesto_seleccionado):
         cuestiones.append({
             'indice': numero,
             'texto': texto,
+            'imagenes': imagenes_por_pregunta.get(numero, []),
             'opciones': [
                 {'letra': 'A', 'texto': 'Sí'},
                 {'letra': 'B', 'texto': 'No'}
@@ -3359,6 +3372,106 @@ def _safe_path(base, *parts):
     return None
 
 
+_IMAGEN_EXAMEN_RE = re.compile(
+    r'^pregunta-(\d+)(?:-[0-9a-f]{32})?\.(?:png|jpe?g|gif|webp)$',
+    re.IGNORECASE,
+)
+_FORMATOS_IMAGEN_EXAMEN = {'PNG': 'png', 'JPEG': 'jpg', 'GIF': 'gif', 'WEBP': 'webp'}
+_TAMANO_MAXIMO_IMAGEN_EXAMEN = 10 * 1024 * 1024
+
+
+def _es_archivo_examen(base, abs_file):
+    try:
+        ruta_relativa = os.path.relpath(
+            os.path.realpath(abs_file),
+            os.path.realpath(base),
+        ).replace('\\', '/')
+    except ValueError:
+        return False
+    partes = ruta_relativa.split('/')
+    return (
+        len(partes) >= 2
+        and partes[0].lower() in {'teoria', 'practica'}
+        and partes[-1].lower().endswith('.txt')
+    )
+
+
+def _directorio_imagenes_examen(abs_file):
+    nombre_examen = os.path.splitext(os.path.basename(abs_file))[0]
+    return os.path.join(os.path.dirname(abs_file), 'imagenes', nombre_examen)
+
+
+def _imagenes_examen(base, directorio):
+    imagenes = []
+    if not os.path.isdir(directorio):
+        return imagenes
+
+    with os.scandir(directorio) as entradas:
+        for entrada in entradas:
+            match = _IMAGEN_EXAMEN_RE.fullmatch(entrada.name)
+            if not match or not entrada.is_file():
+                continue
+            ruta_relativa = os.path.relpath(
+                os.path.realpath(entrada.path),
+                os.path.realpath(base),
+            ).replace('\\', '/')
+            imagenes.append({
+                'numero': int(match.group(1)),
+                'nombre': entrada.name,
+                'rel': ruta_relativa,
+                'url': reverse('imagen_plantilla', kwargs={'image_rel': ruta_relativa}),
+            })
+
+    return sorted(imagenes, key=lambda imagen: (imagen['numero'], imagen['nombre'].lower()))
+
+
+def _validar_imagen_examen(imagen):
+    if imagen.size > _TAMANO_MAXIMO_IMAGEN_EXAMEN:
+        raise ValueError("La imagen no puede superar los 10 MB.")
+
+    try:
+        imagen.seek(0)
+        with Image.open(imagen) as archivo_imagen:
+            formato = archivo_imagen.format
+            if archivo_imagen.width * archivo_imagen.height > 25_000_000:
+                raise ValueError("La imagen supera el tamaño máximo de resolución.")
+            archivo_imagen.verify()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise ValueError("El archivo seleccionado no es una imagen válida.") from error
+
+    extension = _FORMATOS_IMAGEN_EXAMEN.get(formato)
+    if not extension:
+        raise ValueError("Formato de imagen no válido. Usa PNG, JPG, GIF o WEBP.")
+
+    imagen.seek(0)
+    return extension
+
+
+@login_required
+def imagen_plantilla(request, image_rel):
+    base = PLANTILLAS_ROOT
+    partes = image_rel.replace('\\', '/').split('/')
+    if len(partes) < 4 or partes[0].lower() not in {'teoria', 'practica'}:
+        raise Http404("Imagen no encontrada.")
+
+    ruta_imagen = _safe_path(base, *partes)
+    if not ruta_imagen or not os.path.isfile(ruta_imagen):
+        raise Http404("Imagen no encontrada.")
+
+    ruta_real_relativa = os.path.relpath(
+        ruta_imagen,
+        os.path.realpath(base),
+    ).replace('\\', '/').split('/')
+    if (
+        'imagenes' not in ruta_real_relativa[1:-1]
+        or not _IMAGEN_EXAMEN_RE.fullmatch(os.path.basename(ruta_imagen))
+    ):
+        raise Http404("Imagen no encontrada.")
+
+    content_type = mimetypes.guess_type(ruta_imagen)[0] or 'application/octet-stream'
+    return FileResponse(open(ruta_imagen, 'rb'), content_type=content_type)
+
+
 def _listar_directorio(abs_dir, rel_dir):
     """Devuelve listas de subcarpetas y archivos .txt en abs_dir."""
     carpetas = []
@@ -3367,6 +3480,8 @@ def _listar_directorio(abs_dir, rel_dir):
         for entry in sorted(os.scandir(abs_dir), key=lambda e: (not e.is_dir(), e.name.lower())):
             rel = (rel_dir + '/' + entry.name) if rel_dir else entry.name
             if entry.is_dir():
+                if entry.name.lower() == 'imagenes':
+                    continue
                 carpetas.append({'nombre': entry.name, 'rel': rel})
             elif entry.is_file() and entry.name.lower().endswith('.txt'):
                 archivos.append({'nombre': entry.name, 'rel': rel})
@@ -3386,6 +3501,38 @@ def _breadcrumbs(rel_dir):
         acumulado = (acumulado + '/' + p) if acumulado else p
         crumbs.append({'nombre': p, 'rel': acumulado})
     return crumbs
+
+
+def _normalizar_saltos_examen(contenido):
+    lineas = contenido.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    lineas_normalizadas = []
+    for linea in lineas:
+        if not linea.strip():
+            continue
+        if re.match(r'^\s*\d+-', linea) and lineas_normalizadas:
+            lineas_normalizadas.append('')
+        lineas_normalizadas.append(linea)
+    return '\n'.join(lineas_normalizadas)
+
+
+def _guardar_contenido_plantilla(abs_file, contenido, es_examen):
+    contenido = contenido.replace('\r\n', '\n').replace('\r', '\n')
+    if es_examen:
+        contenido = _normalizar_saltos_examen(contenido)
+    with open(abs_file, 'w', encoding='utf-8', newline='') as archivo:
+        archivo.write(contenido)
+
+
+def _preguntas_editor(contenido):
+    preguntas = []
+    for linea in contenido.splitlines():
+        match = re.match(r'^\s*(\d+)-\s*(.+)', linea)
+        if match:
+            preguntas.append({
+                'numero': int(match.group(1)),
+                'texto': match.group(2).strip(),
+            })
+    return preguntas
 
 
 @groups_required('admin', 'formacion')
@@ -3411,11 +3558,12 @@ def edicion_plantillas(request):
     if request.method == 'POST':
         accion = request.POST.get('accion')
 
-        # Guardar / crear archivo
-        if accion in ('guardar', 'crear'):
+        # Guardar / crear archivo o gestionar sus imágenes
+        if accion in ('guardar', 'crear', 'subir_imagen', 'eliminar_imagen'):
             nombre = request.POST.get('nombre_archivo', '').strip()
             contenido = request.POST.get('contenido', '')
             destino_dir_rel = request.POST.get('dir_actual', '')
+            abs_file = None
             if not nombre:
                 messages.error(request, "El nombre del archivo no puede estar vacío.")
             else:
@@ -3425,13 +3573,93 @@ def edicion_plantillas(request):
                 if not abs_file:
                     messages.error(request, "Ruta no válida.")
                 else:
-                    try:
-                        with open(abs_file, 'w', encoding='utf-8') as f:
-                            f.write(contenido)
-                        messages.success(request, f"Archivo '{nombre}' guardado correctamente.")
-                    except Exception as e:
-                        messages.error(request, f"Error al guardar: {e}")
-            # Redirigir al directorio actual
+                    es_examen = _es_archivo_examen(base, abs_file)
+                    if accion in ('guardar', 'crear'):
+                        try:
+                            _guardar_contenido_plantilla(abs_file, contenido, es_examen)
+                            messages.success(request, f"Archivo '{nombre}' guardado correctamente.")
+                        except OSError as error:
+                            messages.error(request, f"Error al guardar: {error}")
+                    elif not es_examen:
+                        messages.error(request, "Las imágenes solo se pueden asociar a exámenes teóricos o prácticos.")
+                    elif accion == 'subir_imagen':
+                        imagen_subida = request.FILES.get('imagen')
+                        numero_pregunta = request.POST.get('numero_pregunta', '')
+                        numeros_preguntas = {
+                            int(match.group(1))
+                            for match in re.finditer(r'^\s*(\d+)-\s*.+', contenido, re.MULTILINE)
+                        }
+                        try:
+                            numero_pregunta = int(numero_pregunta)
+                        except (TypeError, ValueError):
+                            numero_pregunta = None
+
+                        if not imagen_subida:
+                            messages.error(request, "Selecciona una imagen para subir.")
+                        elif numero_pregunta not in numeros_preguntas:
+                            messages.error(request, "Selecciona una pregunta válida.")
+                        else:
+                            try:
+                                extension = _validar_imagen_examen(imagen_subida)
+                            except ValueError as error:
+                                messages.error(request, str(error))
+                            else:
+                                directorio_imagenes = _directorio_imagenes_examen(abs_file)
+                                nombre_imagen = f"pregunta-{numero_pregunta}-{uuid.uuid4().hex}.{extension}"
+                                ruta_imagen = _safe_path(directorio_imagenes, nombre_imagen)
+                                if not ruta_imagen:
+                                    messages.error(request, "Ruta de imagen no válida.")
+                                else:
+                                    try:
+                                        os.makedirs(directorio_imagenes, exist_ok=True)
+                                        with open(ruta_imagen, 'wb') as archivo_imagen:
+                                            for fragmento in imagen_subida.chunks():
+                                                archivo_imagen.write(fragmento)
+                                        _guardar_contenido_plantilla(abs_file, contenido, True)
+                                        messages.success(
+                                            request,
+                                            f"Imagen añadida a la pregunta {numero_pregunta}.",
+                                        )
+                                    except OSError as error:
+                                        mensaje_error = f"No se pudo guardar la imagen: {error}"
+                                        if os.path.exists(ruta_imagen):
+                                            try:
+                                                os.remove(ruta_imagen)
+                                            except OSError as error_limpieza:
+                                                mensaje_error += (
+                                                    f" Tampoco se pudo limpiar el archivo parcial: {error_limpieza}"
+                                                )
+                                        messages.error(request, mensaje_error)
+                    else:
+                        directorio_imagenes = os.path.realpath(_directorio_imagenes_examen(abs_file))
+                        imagen_rel = request.POST.get('imagen_rel', '').replace('\\', '/')
+                        partes_imagen = imagen_rel.split('/')
+                        ruta_imagen = _safe_path(base, *partes_imagen) if imagen_rel else None
+                        if (
+                            not ruta_imagen
+                            or os.path.dirname(ruta_imagen) != directorio_imagenes
+                            or not _IMAGEN_EXAMEN_RE.fullmatch(os.path.basename(ruta_imagen))
+                            or not os.path.isfile(ruta_imagen)
+                        ):
+                            messages.error(request, "No se encontró la imagen seleccionada.")
+                        else:
+                            try:
+                                _guardar_contenido_plantilla(abs_file, contenido, True)
+                                os.remove(ruta_imagen)
+                                messages.success(request, "Imagen eliminada correctamente.")
+                            except OSError as error:
+                                messages.error(request, f"No se pudo eliminar la imagen: {error}")
+
+            if accion in ('subir_imagen', 'eliminar_imagen'):
+                archivo_rel = (
+                    os.path.relpath(os.path.realpath(abs_file), os.path.realpath(base)).replace('\\', '/')
+                    if abs_file else ''
+                )
+                if not archivo_rel:
+                    archivo_rel = request.POST.get('file_rel', '')
+                parametros = urlencode({'subdir': destino_dir_rel, 'file': archivo_rel})
+                return redirect(f"{reverse('edicion_plantillas')}?{parametros}")
+
             params = f"?subdir={destino_dir_rel}" if destino_dir_rel else ''
             return redirect(f"{reverse('edicion_plantillas')}{params}")
 
@@ -3459,11 +3687,26 @@ def edicion_plantillas(request):
             try:
                 with open(abs_file, 'r', encoding='utf-8') as f:
                     contenido_archivo = f.read()
+                es_examen = _es_archivo_examen(base, abs_file)
+                preguntas_editor = _preguntas_editor(contenido_archivo) if es_examen else []
+                imagenes = _imagenes_examen(
+                    base,
+                    _directorio_imagenes_examen(abs_file),
+                ) if es_examen else []
+                textos_preguntas = {
+                    pregunta['numero']: pregunta['texto']
+                    for pregunta in preguntas_editor
+                }
+                for imagen in imagenes:
+                    imagen['texto_pregunta'] = textos_preguntas.get(imagen['numero'], '')
                 archivo_contexto = {
                     'rel': file_rel,
                     'nombre': os.path.basename(abs_file),
                     'contenido': contenido_archivo,
                     'dir_actual': subdir,
+                    'es_examen': es_examen,
+                    'preguntas_editor': preguntas_editor,
+                    'imagenes': imagenes,
                 }
             except Exception as e:
                 messages.error(request, f"No se pudo leer el archivo: {e}")

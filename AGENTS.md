@@ -300,15 +300,16 @@ Archivo clave: [formacion/views.py](formacion/views.py)
 
 Se usa:
 
-- `BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', r"\\es01sw31\APP Training Tool")`
+- `BASE_URL = getattr(settings, 'TRAINING_SHARED_ROOT', str(settings.BASE_DIR))`
 - Helpers: `shared_path`, `shared_media_path`, `shared_plantillas_path`.
 
-Por tanto, la app no asume solo [media](media) local; puede apuntar a share de red.
+Por defecto se usa [media](media) local (desarrollo). En servidor, definir `TRAINING_SHARED_ROOT` en settings para apuntar al share de red (p. ej. `\\es01sw31\APP Training Tool`).
 
 ### 12.1 Entradas esperadas
 
 - `media/plantillas/teoria/{PUESTO}.txt`
 - `media/plantillas/practica/{PUESTO}.txt`
+- Imágenes de examen en `media/plantillas/{teoria|practica}/imagenes/{PUESTO}/pregunta-{NUMERO}[-{UUID}].{png|jpg|gif|webp}`.
 - `media/plantillas/validaciones/Validacion Initial Training fase 1.docx`
 - `media/plantillas/validaciones/Validacion Initial Training fase 2.docx`
 - `media/plantillas/validaciones/Validacion Initial Training fase 3.docx`

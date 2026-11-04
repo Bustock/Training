@@ -226,6 +226,51 @@
         .nombre-file-row input[type="text"]:focus { border-color: rgb(0,132,203); }
         .ext-hint { font-size: 0.8rem; color: #9ca3af; }
 
+        .image-manager {
+            margin-top: 20px;
+            padding: 16px;
+            border: 1px solid #dbeafe;
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+        .image-manager h3 { margin: 0 0 12px; color: #1f2937; font-size: 1rem; }
+        .image-list { display: grid; gap: 12px; }
+        .image-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            background: #fff;
+        }
+        .image-card img {
+            width: 150px;
+            max-height: 110px;
+            object-fit: contain;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            background: #f9fafb;
+        }
+        .image-card-info { flex: 1; min-width: 0; }
+        .image-card-info p { margin: 4px 0 0; color: #6b7280; font-size: 0.85rem; }
+        .image-upload {
+            display: flex;
+            align-items: end;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .image-upload label { display: grid; gap: 5px; font-size: 0.82rem; font-weight: 600; color: #374151; }
+        .image-upload select, .image-upload input[type="file"] { max-width: 100%; }
+        .image-help { width: 100%; margin: 0; color: #6b7280; font-size: 0.8rem; }
+        @media (max-width: 640px) {
+            .image-card { align-items: flex-start; flex-wrap: wrap; }
+            .image-card img { width: 100%; max-height: 180px; }
+        }
+
         /* CodeMirror */
         .CodeMirror {
             height: 500px;
@@ -411,10 +456,12 @@
                 <i class="fas fa-edit"></i> {{ archivo.nombre }}
             </div>
             <div class="editor-panel-body">
-                <form method="POST" id="form-editor">
+                <form method="POST" id="form-editor" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <input type="hidden" name="accion" value="guardar">
+                    <input type="hidden" id="accion-editor" name="accion" value="guardar">
                     <input type="hidden" name="dir_actual" value="{{ archivo.dir_actual }}">
+                    <input type="hidden" name="file_rel" value="{{ archivo.rel }}">
+                    <input type="hidden" id="imagen-rel" name="imagen_rel" value="">
 
                     <div class="nombre-file-row">
                         <label for="nombre_archivo">Nombre:</label>
@@ -425,6 +472,50 @@
                     </div>
 
                     <textarea id="editor-textarea" name="contenido">{{ archivo.contenido }}</textarea>
+
+                    {% if archivo.es_examen %}
+                        <section class="image-manager" aria-labelledby="image-manager-title">
+                            <h3 id="image-manager-title"><i class="fas fa-images"></i> Imágenes insertadas</h3>
+                            {% if archivo.imagenes %}
+                                <div class="image-list">
+                                    {% for imagen in archivo.imagenes %}
+                                        <article class="image-card">
+                                            <img src="{{ imagen.url }}" alt="Imagen de la pregunta {{ imagen.numero }}">
+                                            <div class="image-card-info">
+                                                <strong>Pregunta {{ imagen.numero }}</strong>
+                                                {% if imagen.texto_pregunta %}<p>{{ imagen.texto_pregunta }}</p>{% endif %}
+                                                <p>{{ imagen.nombre }}</p>
+                                            </div>
+                                            <button type="submit" class="btn btn-delete button-pop btn-eliminar-imagen"
+                                                    data-imagen="{{ imagen.rel }}" onclick="return prepararEliminacionImagen(this)">
+                                                <i class="fas fa-trash"></i> Eliminar imagen
+                                            </button>
+                                        </article>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p style="margin:0; color:#6b7280; font-size:0.88rem;">Este examen todavía no tiene imágenes.</p>
+                            {% endif %}
+
+                            <div class="image-upload">
+                                <label for="imagen-pregunta">Pregunta
+                                    <select id="imagen-pregunta" name="numero_pregunta">
+                                        {% for pregunta in archivo.preguntas_editor %}
+                                            <option value="{{ pregunta.numero }}">Pregunta {{ pregunta.numero }} — {{ pregunta.texto }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                <label for="imagen-archivo">Imagen
+                                    <input type="file" id="imagen-archivo" name="imagen"
+                                           accept="image/png,image/jpeg,image/gif,image/webp">
+                                </label>
+                                <button type="submit" class="btn btn-save button-pop" onclick="prepararSubidaImagen()">
+                                    <i class="fas fa-upload"></i> Subir imagen
+                                </button>
+                                <p class="image-help">La imagen aparecerá entre la pregunta y sus respuestas. Formatos: PNG, JPG, GIF o WEBP (máximo 10 MB).</p>
+                            </div>
+                        </section>
+                    {% endif %}
 
                     <div class="editor-actions">
                         <button type="submit" class="btn btn-save button-pop">
@@ -519,9 +610,55 @@
             indentWithTabs: false,
             autofocus: false,
         });
-        document.getElementById('form-editor').addEventListener('submit', function() {
+        var selectPreguntaImagen = document.getElementById('imagen-pregunta');
+        var formEditor = document.getElementById('form-editor');
+
+        function actualizarPreguntasImagen() {
+            if (!selectPreguntaImagen) return;
+            var seleccionActual = selectPreguntaImagen.value;
+            var preguntas = [];
+            editor.getValue().split(/\r?\n/).forEach(function(linea) {
+                var coincidencia = linea.match(/^\s*(\d+)-\s*(.+)/);
+                if (coincidencia) {
+                    preguntas.push({numero: coincidencia[1], texto: coincidencia[2].trim()});
+                }
+            });
+
+            selectPreguntaImagen.innerHTML = '';
+            preguntas.forEach(function(pregunta) {
+                var opcion = document.createElement('option');
+                opcion.value = pregunta.numero;
+                opcion.textContent = 'Pregunta ' + pregunta.numero + ' — ' + pregunta.texto;
+                selectPreguntaImagen.appendChild(opcion);
+            });
+            if (preguntas.some(function(pregunta) { return pregunta.numero === seleccionActual; })) {
+                selectPreguntaImagen.value = seleccionActual;
+            }
+        }
+
+        actualizarPreguntasImagen();
+        editor.on('change', actualizarPreguntasImagen);
+        formEditor.addEventListener('submit', function(event) {
             editor.save();
+            var accion = document.getElementById('accion-editor').value;
+            if (accion === 'subir_imagen' &&
+                (!document.getElementById('imagen-archivo').files.length || !selectPreguntaImagen.value)) {
+                event.preventDefault();
+                document.getElementById('accion-editor').value = 'guardar';
+                alert('Selecciona una pregunta y una imagen.');
+            }
         });
+    }
+
+    function prepararSubidaImagen() {
+        document.getElementById('accion-editor').value = 'subir_imagen';
+    }
+
+    function prepararEliminacionImagen(boton) {
+        if (!confirm('¿Eliminar esta imagen del examen?')) return false;
+        document.getElementById('imagen-rel').value = boton.dataset.imagen;
+        document.getElementById('accion-editor').value = 'eliminar_imagen';
+        return true;
     }
 
     // ── Modal Eliminar ────────────────────────────────────────────────────────

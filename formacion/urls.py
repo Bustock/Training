@@ -46,4 +46,5 @@ urlpatterns = [
     path('auditoria_api/puestos_operario/', auditoria_api_puestos_operario, name='auditoria_api_puestos_operario'),
     path('auditoria_api/operarios_puesto/', auditoria_api_operarios_puesto, name='auditoria_api_operarios_puesto'),
     path('edicion_plantillas', edicion_plantillas, name='edicion_plantillas'),
+    path('imagen_plantilla/<path:image_rel>', imagen_plantilla, name='imagen_plantilla'),
 ]

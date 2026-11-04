@@ -40,6 +40,15 @@
             color: #333;
         }
 
+        .pregunta-imagen {
+            display: block;
+            max-width: 100%;
+            max-height: 500px;
+            height: auto;
+            margin: 0 auto 14px;
+            border-radius: 6px;
+        }
+
         .opcion {
             margin: 8px 0;
         }
@@ -114,6 +123,9 @@
         {% for pregunta in preguntas %}
             <div class="pregunta">
                 <strong>{{ pregunta.indice }}. {{ pregunta.texto }}</strong>
+                {% for imagen in pregunta.imagenes %}
+                    <img class="pregunta-imagen" src="{{ imagen.url }}" alt="Imagen de la pregunta {{ pregunta.indice }}">
+                {% endfor %}
                 {% for opcion in pregunta.opciones %}
                     <div class="opcion">
                         <label>
