@@ -276,8 +276,13 @@
                                 <li>
                                     {% if operario.nombre in sin_firma_info %}
                                         {{ operario.nombre }} >>
-                                        <a href="{% url 'introducir_firma' %}?operario={{ operario.nombre|urlencode }}&opi={{ opi_a_mod|urlencode }}">
+                                        <a href="{% url 'introducir_firma' %}?operario={{ operario.nombre|urlencode }}&opi={{ opi_a_mod|urlencode }}" title="Introducir firma ahora">
                                            <!-- {{ operario.nombre }} --> <i class="fa-solid fa-pen-to-square"></i>
+                                        </a>
+                                        <a href="javascript:void(0);" title="Copiar enlace"
+                                                data-url="{% url 'introducir_firma' %}?operario={{ operario.nombre|urlencode }}&opi={{ opi_a_mod|urlencode }}"
+                                                onclick="copiarEnlaceFirma(this)">
+                                            <i class="fa-solid fa-link"></i>
                                         </a>
                                     {% else %}
                                         {{ operario.nombre }} >>
@@ -307,6 +312,27 @@
             urlParams.set('OPERARIO', tecnico);
             var newUrl = window.location.pathname + '?' + urlParams.toString();
             window.location.href = newUrl;
+        }
+
+        function copiarEnlaceFirma(btn) {
+            var url = window.location.origin + btn.dataset.url;
+            var icon = btn.querySelector('i');
+            function feedback() {
+                icon.className = 'fa-solid fa-check';
+                btn.style.color = '#16a34a';
+                alert('Enlace copiado para mandar por e-mail al técnico');
+                setTimeout(function() {
+                    icon.className = 'fa-solid fa-link';
+                    btn.style.color = '';
+                }, 1500);
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(feedback).catch(function() {
+                    window.prompt('Copia el enlace manualmente:', url);
+                });
+            } else {
+                window.prompt('Copia el enlace manualmente:', url);
+            }
         }
 
         function selectOpi(opi) {
