@@ -1707,11 +1707,13 @@ def cargar_teoria(puesto_seleccionado):
 
     # Verificar que el archivo existe antes de abrirlo
     if not os.path.exists(file_path):
-        return None, "El archivo de preguntas no se encuentra."
+        return None, "El archivo de preguntas no se encuentra.", None
 
     # Leer el contenido del archivo .txt
     with open(file_path, 'r', encoding='utf-8') as file:
         contenido = file.read()
+
+    version_examen, fecha_guardado_examen, contenido = _extraer_metadatos_examen(contenido)
 
     imagenes_por_pregunta = {}
     for imagen in _imagenes_examen(
@@ -1749,7 +1751,7 @@ def cargar_teoria(puesto_seleccionado):
             if match_opcion.group(3) == '*':
                 pregunta_actual['respuesta_correcta'] = letra
 
-    return preguntas, None
+    return preguntas, None, {'version': version_examen, 'fecha_guardado': fecha_guardado_examen}
 
 @groups_required('admin', 'formacion', 'tecnicos')
 @login_required
@@ -1762,7 +1764,7 @@ def completar_teoria(request):
         puesto_traducido = puestos_dict[puesto_seleccionado]
 
         # Cargar preguntas
-        preguntas, error = cargar_teoria(puesto_seleccionado)
+        preguntas, error, meta_examen = cargar_teoria(puesto_seleccionado)
         if error:
             return json_error_detallado(error, 'teoria', puesto_seleccionado)
 
@@ -1772,7 +1774,9 @@ def completar_teoria(request):
             'puesto_seleccionado': puesto_seleccionado,
             'puesto_traducido': puesto_traducido,
             'fecha': fecha_actual,
-            'preguntas': preguntas
+            'preguntas': preguntas,
+            'version_examen': meta_examen.get('version'),
+            'fecha_guardado_examen': meta_examen.get('fecha_guardado'),
         }
 
         return render(request, 'completar_teoria.html', contexto)
@@ -1784,7 +1788,7 @@ def completar_teoria(request):
         puesto_traducido = puestos_dict[puesto_seleccionado]
 
         # Cargar preguntas
-        preguntas, error = cargar_teoria(puesto_seleccionado)
+        preguntas, error, meta_examen = cargar_teoria(puesto_seleccionado)
         if error:
             return json_error_detallado(error, 'teoria', puesto_seleccionado)
 
@@ -1836,6 +1840,10 @@ def completar_teoria(request):
             pdf.cell(200, 10, txt=f"Evaluación Formación Teoría {puesto_traducido}", ln=True, align='C')
             pdf.cell(200, 10, txt=f"Fecha: {fecha_actual}", ln=True, align='L')
             pdf.cell(200, 10, txt=f"Operario: {operario_nombre}", ln=True, align='L')
+            if meta_examen.get('version'):
+                pdf.cell(200, 10, txt=f"Versión del examen: {meta_examen['version']}", ln=True, align='L')
+            if meta_examen.get('fecha_guardado'):
+                pdf.cell(200, 10, txt=f"Fecha de guardado de la plantilla: {meta_examen['fecha_guardado']}", ln=True, align='L')
             pdf.ln(6)
 
             for pregunta in preguntas:
@@ -1907,10 +1915,12 @@ def cargar_practica(puesto_seleccionado):
     file_path = os.path.join(base_path, f"{puesto_seleccionado}.txt")
 
     if not os.path.exists(file_path):
-        return None, "El archivo de cuestiones no se encuentra."
+        return None, "El archivo de cuestiones no se encuentra.", None
 
     with open(file_path, 'r', encoding='utf-8') as file:
         contenido = file.read()
+
+    version_examen, fecha_guardado_examen, contenido = _extraer_metadatos_examen(contenido)
 
     imagenes_por_pregunta = {}
     for imagen in _imagenes_examen(
@@ -1943,7 +1953,7 @@ def cargar_practica(puesto_seleccionado):
             ]
         })
 
-    return cuestiones, None
+    return cuestiones, None, {'version': version_examen, 'fecha_guardado': fecha_guardado_examen}
 
 @groups_required('admin', 'formacion')
 @login_required
@@ -1955,7 +1965,7 @@ def completar_practica(request):
         fecha_actual = datetime.now().strftime("%d/%m/%Y")
         puesto_traducido = puestos_dict[puesto_seleccionado]
 
-        preguntas, error = cargar_practica(puesto_seleccionado)
+        preguntas, error, meta_examen = cargar_practica(puesto_seleccionado)
         if error:
             return json_error_detallado(error, 'practica', puesto_seleccionado)
 
@@ -1964,7 +1974,9 @@ def completar_practica(request):
             'operario_nombre': operario_nombre,
             'puesto_seleccionado': puesto_seleccionado,
             'fecha': fecha_actual,
-            'preguntas': preguntas
+            'preguntas': preguntas,
+            'version_examen': meta_examen.get('version'),
+            'fecha_guardado_examen': meta_examen.get('fecha_guardado'),
         }
 
         return render(request, 'completar_practica.html', contexto)
@@ -1975,7 +1987,7 @@ def completar_practica(request):
         fecha_actual = datetime.now().strftime("%d/%m/%Y")
         puesto_traducido = puestos_dict[puesto_seleccionado]
 
-        preguntas, error = cargar_practica(puesto_seleccionado)
+        preguntas, error, meta_examen = cargar_practica(puesto_seleccionado)
         if error:
             return json_error_detallado(error, 'practica', puesto_seleccionado)
 
@@ -2016,6 +2028,10 @@ def completar_practica(request):
             pdf.cell(200, 10, txt=f"Evaluación Formación Práctica {puesto_traducido}", ln=True, align='C')
             pdf.cell(200, 10, txt=f"Fecha: {fecha_actual}", ln=True, align='L')
             pdf.cell(200, 10, txt=f"Operario: {operario_nombre}", ln=True, align='L')
+            if meta_examen.get('version'):
+                pdf.cell(200, 10, txt=f"Versión del examen: {meta_examen['version']}", ln=True, align='L')
+            if meta_examen.get('fecha_guardado'):
+                pdf.cell(200, 10, txt=f"Fecha de guardado de la plantilla: {meta_examen['fecha_guardado']}", ln=True, align='L')
             pdf.ln(6)
 
             for pregunta in preguntas:
@@ -3515,9 +3531,55 @@ def _normalizar_saltos_examen(contenido):
     return '\n'.join(lineas_normalizadas)
 
 
-def _guardar_contenido_plantilla(abs_file, contenido, es_examen):
+_VERSION_EXAMEN_RE = re.compile(r'^\s*VERSION:\s*(\d+(?:\.\d+)?)\s*$', re.IGNORECASE | re.MULTILINE)
+_FECHA_GUARDADO_EXAMEN_RE = re.compile(r'^\s*FECHA_GUARDADO:\s*(.+?)\s*$', re.IGNORECASE | re.MULTILINE)
+_VERSION_INICIAL_EXAMEN = '1.00'
+_INCREMENTO_VERSION_EXAMEN = 0.05
+
+
+def _extraer_metadatos_examen(contenido):
+    """Devuelve (version, fecha_guardado, cuerpo) de una plantilla de examen."""
+    version = None
+    fecha_guardado = None
+
+    match_version = _VERSION_EXAMEN_RE.search(contenido)
+    if match_version:
+        version = match_version.group(1)
+        contenido = contenido[:match_version.start()] + contenido[match_version.end():]
+
+    match_fecha = _FECHA_GUARDADO_EXAMEN_RE.search(contenido)
+    if match_fecha:
+        fecha_guardado = match_fecha.group(1)
+        contenido = contenido[:match_fecha.start()] + contenido[match_fecha.end():]
+
+    cuerpo = contenido.strip('\n')
+    return version, fecha_guardado, cuerpo
+
+
+def _incrementar_version_examen(version):
+    try:
+        nueva = float(version) + _INCREMENTO_VERSION_EXAMEN
+    except (TypeError, ValueError):
+        nueva = 1.0
+    return f"{nueva:.2f}"
+
+
+def _guardar_contenido_plantilla(abs_file, contenido, es_examen, incrementar_version=False):
     contenido = contenido.replace('\r\n', '\n').replace('\r', '\n')
     if es_examen:
+        version, _, cuerpo = _extraer_metadatos_examen(contenido)
+        if version is None and os.path.isfile(abs_file):
+            try:
+                with open(abs_file, 'r', encoding='utf-8') as archivo_existente:
+                    version, _, _ = _extraer_metadatos_examen(archivo_existente.read())
+            except OSError:
+                version = None
+        if version is None:
+            version = _VERSION_INICIAL_EXAMEN
+        elif incrementar_version:
+            version = _incrementar_version_examen(version)
+        fecha_guardado = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M')
+        contenido = f"VERSION: {version}\nFECHA_GUARDADO: {fecha_guardado}\n\n{cuerpo}"
         contenido = _normalizar_saltos_examen(contenido)
     with open(abs_file, 'w', encoding='utf-8', newline='') as archivo:
         archivo.write(contenido)
@@ -3575,8 +3637,14 @@ def edicion_plantillas(request):
                 else:
                     es_examen = _es_archivo_examen(base, abs_file)
                     if accion in ('guardar', 'crear'):
+                        incrementar_version = (
+                            es_examen
+                            and accion == 'guardar'
+                            and os.path.isfile(abs_file)
+                            and request.POST.get('incrementar_version') == '1'
+                        )
                         try:
-                            _guardar_contenido_plantilla(abs_file, contenido, es_examen)
+                            _guardar_contenido_plantilla(abs_file, contenido, es_examen, incrementar_version)
                             messages.success(request, f"Archivo '{nombre}' guardado correctamente.")
                         except OSError as error:
                             messages.error(request, f"Error al guardar: {error}")
@@ -3688,6 +3756,10 @@ def edicion_plantillas(request):
                 with open(abs_file, 'r', encoding='utf-8') as f:
                     contenido_archivo = f.read()
                 es_examen = _es_archivo_examen(base, abs_file)
+                version_examen = None
+                fecha_guardado_examen = None
+                if es_examen:
+                    version_examen, fecha_guardado_examen, contenido_archivo = _extraer_metadatos_examen(contenido_archivo)
                 preguntas_editor = _preguntas_editor(contenido_archivo) if es_examen else []
                 imagenes = _imagenes_examen(
                     base,
@@ -3705,6 +3777,8 @@ def edicion_plantillas(request):
                     'contenido': contenido_archivo,
                     'dir_actual': subdir,
                     'es_examen': es_examen,
+                    'version_examen': version_examen,
+                    'fecha_guardado_examen': fecha_guardado_examen,
                     'preguntas_editor': preguntas_editor,
                     'imagenes': imagenes,
                 }

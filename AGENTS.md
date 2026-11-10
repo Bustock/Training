@@ -287,7 +287,7 @@ Impacto de cambio: cualquier cambio en nombres de columnas/campos rompe importac
 - `completar_practica`: `operario_nombre`, `puesto_seleccionado`, `respuesta_{indice}`.
 - `completar_producto`: arrays `estado_pieza[]`, `no_conformidad[]`, `descripcion_no_conformidad[]`, `tipo_no_conformidad[]`.
 - `registrar_auditoria`: `SAP`, `NUM_SERIE`, `FAMILIA`, `PUESTO`, `AUDITOR`, `OPERARIO`, `NO_CONFORMIDAD`, `OBSERVACIONES`.
-- `edicion_plantillas`: `accion` (`guardar|crear|eliminar`), `nombre_archivo`, `contenido`, `dir_actual`, `file_rel`.
+- `edicion_plantillas`: `accion` (`guardar|crear|eliminar`), `nombre_archivo`, `contenido`, `dir_actual`, `file_rel`, `incrementar_version` (`1` para subir la version del examen +0.05 al guardar).
 
 ### 11.2 Dependencia JS de timeout
 
@@ -309,6 +309,7 @@ Por defecto se usa [media](media) local (desarrollo). En servidor, definir `TRAI
 
 - `media/plantillas/teoria/{PUESTO}.txt`
 - `media/plantillas/practica/{PUESTO}.txt`
+- Las plantillas de examen (teoria/practica) llevan cabecera de versionado en las dos primeras lineas: `VERSION: X.XX` y `FECHA_GUARDADO: DD/MM/YYYY HH:MM`. Se crean con version `1.00`; al guardar desde `edicion_plantillas` se pregunta si se incrementa (+0.05). La version y fecha de guardado se muestran en el examen y en el PDF generado al aprobar.
 - Imágenes de examen en `media/plantillas/{teoria|practica}/imagenes/{PUESTO}/pregunta-{NUMERO}[-{UUID}].{png|jpg|gif|webp}`.
 - `media/plantillas/validaciones/Validacion Initial Training fase 1.docx`
 - `media/plantillas/validaciones/Validacion Initial Training fase 2.docx`

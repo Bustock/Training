@@ -118,6 +118,8 @@
         <div class="info alert-card info">
             <p><strong>Operario:</strong> {{ operario_nombre }}</p>
             <p><strong>Fecha:</strong> {{ fecha }}</p>
+            {% if version_examen %}<p><strong>Versión del examen:</strong> {{ version_examen }}</p>{% endif %}
+            {% if fecha_guardado_examen %}<p><strong>Fecha de guardado de la plantilla:</strong> {{ fecha_guardado_examen }}</p>{% endif %}
         </div>
 
         {% for pregunta in preguntas %}

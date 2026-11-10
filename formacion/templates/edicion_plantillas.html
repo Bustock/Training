@@ -370,6 +370,20 @@
         }
         .modal-new-body input[type="text"]:focus { border-color: rgb(0,132,203); }
         .ext-hint-block { display: block; font-size: 0.78rem; color: #9ca3af; margin-top: 4px; }
+
+        /* Badge de versión del examen */
+        .version-badge {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.45);
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -454,6 +468,12 @@
         {% if archivo %}
             <div class="editor-panel-header">
                 <i class="fas fa-edit"></i> {{ archivo.nombre }}
+                {% if archivo.es_examen %}
+                    <span class="version-badge">
+                        <i class="fas fa-code-branch"></i> Versión {{ archivo.version_examen|default:"1.00" }}
+                        {% if archivo.fecha_guardado_examen %}&nbsp;·&nbsp;<i class="far fa-clock"></i> Guardado: {{ archivo.fecha_guardado_examen }}{% endif %}
+                    </span>
+                {% endif %}
             </div>
             <div class="editor-panel-body">
                 <form method="POST" id="form-editor" enctype="multipart/form-data">
@@ -462,6 +482,7 @@
                     <input type="hidden" name="dir_actual" value="{{ archivo.dir_actual }}">
                     <input type="hidden" name="file_rel" value="{{ archivo.rel }}">
                     <input type="hidden" id="imagen-rel" name="imagen_rel" value="">
+                    <input type="hidden" id="incrementar-version" name="incrementar_version" value="0">
 
                     <div class="nombre-file-row">
                         <label for="nombre_archivo">Nombre:</label>
@@ -518,7 +539,7 @@
                     {% endif %}
 
                     <div class="editor-actions">
-                        <button type="submit" class="btn btn-save button-pop">
+                        <button type="submit" class="btn btn-save button-pop"{% if archivo.es_examen %} onclick="return confirmarGuardadoExamen()"{% endif %}>
                             <i class="fas fa-save"></i> Guardar cambios
                         </button>
                         <button type="button" class="btn btn-delete button-pop"
@@ -589,6 +610,27 @@
     </div>
 </div>
 
+<!-- ── Modal Versión examen ── -->
+<div class="modal-overlay" id="modal-version">
+    <div class="modal-box">
+        <div class="modal-header">
+            <i class="fas fa-code-branch"></i> Nueva versión del examen
+        </div>
+        <div class="modal-body-inner">
+            <p>¿Quieres aumentar la versión del examen?<br>
+            (Versión actual: <strong>{{ archivo.version_examen|default:"1.00" }}</strong>)</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-save button-pop" onclick="resolverGuardadoExamen(true)">
+                    <i class="fas fa-arrow-up"></i> Sí, subir versión
+                </button>
+                <button type="button" class="btn btn-cancel button-pop" onclick="resolverGuardadoExamen(false)">
+                    <i class="fas fa-equals"></i> No, mantener
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ── button-pop ────────────────────────────────────────────────────────────
     document.querySelectorAll('.button-pop').forEach(function(btn) {
@@ -652,6 +694,32 @@
 
     function prepararSubidaImagen() {
         document.getElementById('accion-editor').value = 'subir_imagen';
+    }
+
+    // ── Modal versión de examen ───────────────────────────────────────────────
+    var guardadoExamenPendiente = false;
+
+    function confirmarGuardadoExamen() {
+        if (guardadoExamenPendiente) {
+            guardadoExamenPendiente = false;
+            return true;
+        }
+        document.getElementById('modal-version').classList.add('active');
+        return false;
+    }
+
+    function resolverGuardadoExamen(incrementar) {
+        document.getElementById('incrementar-version').value = incrementar ? '1' : '0';
+        document.getElementById('modal-version').classList.remove('active');
+        guardadoExamenPendiente = true;
+        document.getElementById('form-editor').requestSubmit();
+    }
+
+    document.getElementById('modal-version').addEventListener('click', function(e) {
+        if (e.target === this) cerrarModalVersion();
+    });
+    function cerrarModalVersion() {
+        document.getElementById('modal-version').classList.remove('active');
     }
 
     function prepararEliminacionImagen(boton) {

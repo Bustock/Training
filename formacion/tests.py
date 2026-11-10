@@ -10,7 +10,13 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from PIL import Image
 
-from .views import _normalizar_saltos_examen, cargar_practica, cargar_teoria
+from .views import (
+    _extraer_metadatos_examen,
+    _incrementar_version_examen,
+    _normalizar_saltos_examen,
+    cargar_practica,
+    cargar_teoria,
+)
 
 
 class GuardarExamenTests(TestCase):
@@ -48,10 +54,8 @@ class GuardarExamenTests(TestCase):
             self.assertEqual(respuesta.status_code, 302)
             guardado = Path(directorio, 'teoria', 'Puesto.txt').read_bytes()
 
-        self.assertEqual(
-            guardado,
-            b'1- Pregunta\nA- Respuesta.*\n\n2- Otra pregunta',
-        )
+        self.assertTrue(guardado.startswith(b'VERSION: 1.00\nFECHA_GUARDADO: '))
+        self.assertTrue(guardado.endswith(b'1- Pregunta\nA- Respuesta.*\n\n2- Otra pregunta'))
 
     def test_subir_mostrar_y_eliminar_imagen_de_pregunta(self):
         self._iniciar_sesion_formacion()
@@ -116,8 +120,10 @@ class GuardarExamenTests(TestCase):
                     return str(Path(directorio, *partes))
 
                 with patch('formacion.views.shared_plantillas_path', side_effect=shared_plantillas_path):
-                    preguntas, error = cargar_teoria('Puesto')
+                    preguntas, error, meta = cargar_teoria('Puesto')
                 self.assertIsNone(error)
+                self.assertEqual(meta['version'], '1.00')
+                self.assertIsNotNone(meta['fecha_guardado'])
                 self.assertEqual(preguntas[0]['imagenes'][0]['nombre'], 'pregunta-1.jpg')
                 self.assertEqual(preguntas[1]['imagenes'][0]['rel'], imagen_rel)
 
@@ -147,9 +153,10 @@ class CargaExamenTests(SimpleTestCase):
         with TemporaryDirectory() as directorio:
             Path(directorio, 'Puesto.txt').write_bytes(contenido)
             with patch('formacion.views.shared_plantillas_path', return_value=directorio):
-                preguntas, error = cargar_teoria('Puesto')
+                preguntas, error, meta = cargar_teoria('Puesto')
 
         self.assertIsNone(error)
+        self.assertIsNone(meta['version'])
         self.assertEqual(len(preguntas), 1)
         self.assertEqual(
             [opcion['letra'] for opcion in preguntas[0]['opciones']],
@@ -162,9 +169,10 @@ class CargaExamenTests(SimpleTestCase):
         with TemporaryDirectory() as directorio:
             Path(directorio, 'Puesto.txt').write_bytes(contenido)
             with patch('formacion.views.shared_plantillas_path', return_value=directorio):
-                cuestiones, error = cargar_practica('Puesto')
+                cuestiones, error, meta = cargar_practica('Puesto')
 
         self.assertIsNone(error)
+        self.assertIsNone(meta['version'])
         self.assertEqual(
             [cuestion['texto'] for cuestion in cuestiones],
             ['Primera cuestion', 'Segunda cuestion'],
@@ -183,3 +191,89 @@ class CargaExamenTests(SimpleTestCase):
             _normalizar_saltos_examen(contenido),
             '1- Pregunta\nA- Respuesta\nB- Otra respuesta\n\n2- Siguiente pregunta',
         )
+
+
+class VersionadoExamenTests(TestCase):
+    def _iniciar_sesion_formacion(self):
+        grupo = Group.objects.create(name='admin')
+        usuario = get_user_model().objects.create_user(
+            username='formacion-admin',
+            password='test-password',
+        )
+        usuario.groups.add(grupo)
+        self.client.force_login(usuario)
+
+    def test_extraer_metadatos_examen(self):
+        contenido = 'VERSION: 1.05\nFECHA_GUARDADO: 09/11/2026 10:00\n\n1- Pregunta\nA- Respuesta.*'
+        version, fecha, cuerpo = _extraer_metadatos_examen(contenido)
+        self.assertEqual(version, '1.05')
+        self.assertEqual(fecha, '09/11/2026 10:00')
+        self.assertEqual(cuerpo, '1- Pregunta\nA- Respuesta.*')
+
+    def test_extraer_metadatos_examen_sin_cabecera(self):
+        version, fecha, cuerpo = _extraer_metadatos_examen('1- Pregunta\nA- Respuesta.*')
+        self.assertIsNone(version)
+        self.assertIsNone(fecha)
+        self.assertEqual(cuerpo, '1- Pregunta\nA- Respuesta.*')
+
+    def test_incrementar_version_examen(self):
+        self.assertEqual(_incrementar_version_examen('1.00'), '1.05')
+        self.assertEqual(_incrementar_version_examen('1.05'), '1.10')
+        self.assertEqual(_incrementar_version_examen(None), '1.00')
+        self.assertEqual(_incrementar_version_examen('abc'), '1.00')
+
+    def test_crear_examen_asigna_version_inicial(self):
+        self._iniciar_sesion_formacion()
+        with TemporaryDirectory() as directorio:
+            Path(directorio, 'teoria').mkdir()
+            with patch('formacion.views.PLANTILLAS_ROOT', directorio):
+                respuesta = self.client.post(
+                    reverse('edicion_plantillas'),
+                    {
+                        'accion': 'crear',
+                        'nombre_archivo': 'Nuevo.txt',
+                        'dir_actual': 'teoria',
+                        'contenido': '1- Pregunta\nA- Respuesta.*',
+                    },
+                )
+                self.assertEqual(respuesta.status_code, 302)
+                guardado = Path(directorio, 'teoria', 'Nuevo.txt').read_text(encoding='utf-8')
+        self.assertTrue(guardado.startswith('VERSION: 1.00\nFECHA_GUARDADO: '))
+
+    def test_guardar_examen_incrementa_version_solo_si_se_pide(self):
+        self._iniciar_sesion_formacion()
+        with TemporaryDirectory() as directorio:
+            ruta = Path(directorio, 'teoria')
+            ruta.mkdir()
+            Path(ruta, 'Puesto.txt').write_text(
+                'VERSION: 1.00\nFECHA_GUARDADO: 01/01/2026 09:00\n\n1- Pregunta\nA- Respuesta.*',
+                encoding='utf-8',
+            )
+            with patch('formacion.views.PLANTILLAS_ROOT', directorio):
+                # Sin incremento: mantiene versión
+                self.client.post(
+                    reverse('edicion_plantillas'),
+                    {
+                        'accion': 'guardar',
+                        'nombre_archivo': 'Puesto.txt',
+                        'dir_actual': 'teoria',
+                        'contenido': '1- Pregunta\nA- Respuesta.*',
+                        'incrementar_version': '0',
+                    },
+                )
+                guardado = Path(ruta, 'Puesto.txt').read_text(encoding='utf-8')
+                self.assertTrue(guardado.startswith('VERSION: 1.00\n'))
+
+                # Con incremento: sube a 1.05
+                self.client.post(
+                    reverse('edicion_plantillas'),
+                    {
+                        'accion': 'guardar',
+                        'nombre_archivo': 'Puesto.txt',
+                        'dir_actual': 'teoria',
+                        'contenido': '1- Pregunta\nA- Respuesta.*',
+                        'incrementar_version': '1',
+                    },
+                )
+                guardado = Path(ruta, 'Puesto.txt').read_text(encoding='utf-8')
+                self.assertTrue(guardado.startswith('VERSION: 1.05\n'))

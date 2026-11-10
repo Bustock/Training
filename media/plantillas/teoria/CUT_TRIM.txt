@@ -1,3 +1,6 @@
+VERSION: 1.00
+FECHA_GUARDADO: 09/11/2026 11:27
+
 1-	Para recortar la placa a cuantas RPM tengo que tener el micromotor.
 A-	15.000 RPM.*
 B-	20.000 RPM.
