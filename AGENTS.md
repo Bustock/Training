@@ -150,6 +150,10 @@ Archivo: [formacion/models.py](formacion/models.py)
   - `fecha_practica`, `porcentaje_practica`
   - `fecha_producto`, `porcentaje_producto`
   - `PDF`
+- JSON keys de `opis.firmas` (no renombrar sin migracion de datos):
+  - claves por nombre de operario (ruta al PDF del acta)
+  - `formador`, `firma_formador`
+  - `firmada_en_papel`, `firmada_en_papel_fecha`, `firmada_en_papel_por` (marca de OPI completada en papel, sin firmas en app)
 
 ### 6.3 Campos de auditoria
 
@@ -211,6 +215,7 @@ Las plantillas usan estos `name` de URL. Renombrarlos rompe navegacion:
 - `rechazar_opi`
 - `introducir_fecha`
 - `guardar_fecha`
+- `marcar_opi_completada`
 - `introducir_firma`
 - `firmar_formacion`
 - `subir_firma`
@@ -254,6 +259,7 @@ Impacto de cambio: cualquier cambio en nombres de columnas/campos rompe importac
 - Promocion a `opis` cuando todas secciones estan gestionadas.
 - Fechas por operario en `guardar_fecha` (`opis.formados`).
 - Firma en `subir_firma` (canvas base64 -> docx -> pdf) y guardado en `opis.firmas`.
+- OPIs vigentes heredadas del flujo en papel: `marcar_opi_completada` (toggle) pone `firmada_en_papel` en `opis.firmas`; la OPI se considera completa sin exigir firmas en app (badge "Completada en papel", estado `COMPLETA (PAPEL)` en el desplegable, sin lista "Por Formar").
 
 ### 10.3 Formacion completa
 
@@ -281,6 +287,7 @@ Impacto de cambio: cualquier cambio en nombres de columnas/campos rompe importac
 
 - `guardar_opi`: `tipo`, `ID`, `version`, `INFO`, `SECCION1..SECCION7`.
 - `guardar_fecha`: `operario`, `fecha`.
+- `marcar_opi_completada`: `opi` (toggle marcar/desmarcar completada en papel).
 - `subir_firma`: `operario`, `imagen`, `dni`, `supervisor`.
 - `guardar_firma`: `operario`, `puesto`, `tipo_firma`, `imagen`, opcional `dni/supervisor`.
 - `completar_teoria`: `operario_nombre`, `puesto_seleccionado`, `respuesta_{indice}`.

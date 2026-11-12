@@ -248,6 +248,22 @@
                     {% if firma_formador_opi_guardada %}
                         <span class="opi-status-badge"><i class="fa-solid fa-circle-check"></i> Ya firmado</span>
                     {% endif %}
+                    {% if opi_firmada_en_papel %}
+                        <span class="opi-status-badge"><i class="fa-solid fa-file-circle-check"></i> Completada en papel</span>
+                    {% endif %}
+                </div>
+                <div style="margin: 0 auto 10px auto; text-align: center;">
+                    {% if opi_firmada_en_papel %}
+                        <button class="button-pop" style="font-size: 16px; padding: 8px 20px;" type="submit" form="marcar_opi_completada_form"
+                                onclick="return confirm('¿Quitar la marca de completada en papel? La OPI {{ opi_a_mod }} volverá a requerir firmas en la app.');">
+                            <i class="fa-solid fa-rotate-left"></i> Desmarcar completada en papel
+                        </button>
+                    {% else %}
+                        <button class="button-pop" style="font-size: 16px; padding: 8px 20px;" type="submit" form="marcar_opi_completada_form"
+                                onclick="return confirm('¿Marcar {{ opi_a_mod }} como completada en papel? Se entiende que ya firmó en papel todo el personal afectado y no se requerirán firmas en la app.');">
+                            <i class="fa-solid fa-file-circle-check"></i> Marcar como completada en papel
+                        </button>
+                    {% endif %}
                 </div>
             {% endif %}
 
@@ -297,6 +313,13 @@
                 {% endif %}
             </div>
         </form>
+
+        {% if opi_a_mod %}
+            <form id="marcar_opi_completada_form" action="{% url 'marcar_opi_completada' %}" method="POST" style="display: none;">
+                {% csrf_token %}
+                <input type="hidden" name="opi" value="{{ opi_a_mod }}">
+            </form>
+        {% endif %}
     </div>
 
     <script>

@@ -107,6 +107,11 @@ def _limpiar_firma_formador_opi(registro_opi):
     registro_opi.save(update_fields=['firmas', 'modificado_por', 'modificado_en'])
 
 
+def _es_opi_firmada_en_papel(registro_opi):
+    firmas = registro_opi.firmas if registro_opi and isinstance(registro_opi.firmas, dict) else {}
+    return bool(firmas.get('firmada_en_papel'))
+
+
 def _operarios_objetivo_opi(registro_opi):
     if not registro_opi:
         return set()
@@ -135,6 +140,9 @@ def _operarios_objetivo_opi(registro_opi):
 
 
 def _opi_firmas_operarios_completas(registro_opi):
+    if _es_opi_firmada_en_papel(registro_opi):
+        return True
+
     operarios_objetivo = _operarios_objetivo_opi(registro_opi)
     if not operarios_objetivo:
         return False
@@ -161,6 +169,9 @@ def _obtener_hijas_nuevas_opi(pdl_nombre):
 
 
 def _tecnicos_pendientes_para_opi(registro_opi):
+    if _es_opi_firmada_en_papel(registro_opi):
+        return set()
+
     secciones = [
         registro_opi.SECCION1,
         registro_opi.SECCION2,
@@ -599,6 +610,7 @@ def formacion_opis(request):
     puesto_a_buscar = []
     puesto_seleccionado = []
     puesto_traducido = []
+    opi_firmada_en_papel = False
 
     if opi_form.is_valid():
         opi = opi_form.cleaned_data.get('opi')
@@ -606,6 +618,7 @@ def formacion_opis(request):
         if opi:
             opi_obj = opis.objects.filter(OPI=opi).first()
             opi_a_mod = opi_obj.OPI if opi_obj else []
+            opi_firmada_en_papel = _es_opi_firmada_en_papel(opi_obj)
             _, formador_opi, firma_formador_opi_path = _obtener_datos_firma_formador_opi(opi_obj)
             firma_formador_opi_guardada = bool(formador_opi and firma_formador_opi_path)
             if _es_opi_pdl_padre(opi_obj):
@@ -615,7 +628,8 @@ def formacion_opis(request):
                 objetivos_por_hija = {}
 
                 for hija in hijas:
-                    pendientes_union.update(_tecnicos_pendientes_para_opi(hija))
+                    if not opi_firmada_en_papel:
+                        pendientes_union.update(_tecnicos_pendientes_para_opi(hija))
                     objetivos_por_hija[hija.OPI] = _operarios_objetivo_opi(hija)
                     formados_hija = hija.formados if isinstance(hija.formados, dict) else {}
                     for nombre, fecha in formados_hija.items():
@@ -666,7 +680,7 @@ def formacion_opis(request):
                             if isinstance(field_value, int) and field_value not in [0, 1]:
                                 valores_validos[seccion] = field_value
 
-                    if valores_validos:
+                    if valores_validos and not opi_firmada_en_papel:
                         opis_info.append({'nombre': operario.OPERARIO})
         else:
             # Evita reutilizar una OPI previa cuando no hay selección actual.
@@ -730,6 +744,7 @@ def formacion_opis(request):
         'opi_form': opi_form,
         'opis_info': opis_info,
         'opi_a_mod': opi_a_mod,
+        'opi_firmada_en_papel': opi_firmada_en_papel,
         'firma_formador_opi_guardada': firma_formador_opi_guardada,
         'formados_info': formados_info,
         'sin_firma_info': sin_firma_info,
@@ -1170,6 +1185,36 @@ def guardar_fecha(request):
         messages.add_message(request, messages.INFO, f'{operario} completó: {opi_nombre}')
         return redirect(f"{reverse('formacion_opis')}?opi={opi_nombre}")
 
+@groups_required('admin', 'formacion')
+@login_required
+def marcar_opi_completada(request):
+    if request.method != 'POST':
+        return redirect('formacion_opis')
+
+    opi_nombre = (request.POST.get('opi') or '').strip()
+    if not opi_nombre:
+        messages.error(request, 'No se ha indicado la OPI a marcar.')
+        return redirect('formacion_opis')
+
+    opi_obj = get_object_or_404(opis, OPI=opi_nombre)
+    firmas = opi_obj.firmas if isinstance(opi_obj.firmas, dict) else {}
+
+    if _es_opi_firmada_en_papel(opi_obj):
+        for clave in ('firmada_en_papel', 'firmada_en_papel_fecha', 'firmada_en_papel_por'):
+            firmas.pop(clave, None)
+        messages.info(request, f'La OPI {opi_nombre} vuelve a requerir firmas en la app.')
+    else:
+        firmas['firmada_en_papel'] = True
+        firmas['firmada_en_papel_fecha'] = timezone.localdate().isoformat()
+        firmas['firmada_en_papel_por'] = request.user.username
+        messages.info(request, f'OPI {opi_nombre} marcada como completada en papel. Ya no se requieren firmas en la app.')
+
+    opi_obj.firmas = firmas
+    opi_obj.modificado_por = request.user
+    opi_obj.save()
+
+    return redirect(f"{reverse('formacion_opis')}?{urlencode({'opi': opi_nombre})}")
+
 @groups_required('admin', 'formacion', 'tecnicos')
 @login_required
 def introducir_firma(request):
@@ -1528,7 +1573,7 @@ def subir_firma(request):
                     request_user=request.user,
                 )
 
-                if _opi_firmas_operarios_completas(opi_obj):
+                if _opi_firmas_operarios_completas(opi_obj) and not _es_opi_firmada_en_papel(opi_obj):
                     _limpiar_firma_formador_opi(opi_obj)
 
                 messages.add_message(request, messages.INFO, f'Firma de {operario} guardada en la OPI: {opi_nombre}. Hasta la próxima!')

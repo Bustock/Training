@@ -213,7 +213,9 @@ class OpiForm(forms.Form):
             firmas_registradas = operarios_formados.intersection(operarios_firmados)
             total_pendientes = len(pendientes_por_firmar) + len(pendientes_por_formar)
 
-            if not firmas_registradas:
+            if firmas_dict.get('firmada_en_papel'):
+                estado = 'COMPLETA (PAPEL)'
+            elif not firmas_registradas:
                 estado = 'SIN INICIAR'
             elif total_pendientes == 0:
                 estado = 'COMPLETA'

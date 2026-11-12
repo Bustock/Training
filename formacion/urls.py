@@ -26,6 +26,7 @@ urlpatterns = [
     path('rechazar_opi/', rechazar_opi, name='rechazar_opi'), 
     path('introducir_fecha', introducir_fecha, name='introducir_fecha'),
     path('guardar_fecha', guardar_fecha, name='guardar_fecha'),
+    path('marcar_opi_completada', marcar_opi_completada, name='marcar_opi_completada'),
     path('introducir_firma', introducir_firma, name='introducir_firma'),
     path('firmar_formador_opi', firmar_formador_opi, name='firmar_formador_opi'),
     path('firmar_formacion', firmar_formacion, name='firmar_formacion'),
